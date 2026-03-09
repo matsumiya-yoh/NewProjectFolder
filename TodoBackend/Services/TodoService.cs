@@ -35,7 +35,6 @@ public class TodoService {
         }
     }
 
-    // 💡 変更：個人用と共有用(__SHARED__)の両方を混ぜて返す
     public List<TaskTemplate> GetTemplates(string userName) {
         var result = new List<TaskTemplate>();
         if (!string.IsNullOrWhiteSpace(userName) && _templates.TryGetValue(userName, out var userTmpls)) {
@@ -47,7 +46,6 @@ public class TodoService {
         return result;
     }
 
-    // 💡 変更：IsSharedがtrueなら __SHARED__ キーに保存する
     public void AddTemplate(string userName, TaskTemplate tmpl) {
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(tmpl.TemplateName)) return;
         
@@ -61,7 +59,6 @@ public class TodoService {
         SaveTemplates();
     }
 
-    // 💡 変更：共有・個人の区別をつけて削除
     public void DeleteTemplate(string userName, string templateName, bool isShared) {
         string targetKey = isShared ? "__SHARED__" : userName;
         if (_templates.ContainsKey(targetKey)) {
@@ -202,7 +199,6 @@ public class TodoService {
         return result.ToList();
     }
 
-    // 💡 追加：複数日付への一括登録処理
     public void AddBulk(List<string> dates, TodoTask task) {
         if (string.IsNullOrWhiteSpace(task.Title) || dates == null || !dates.Any()) return;
 
@@ -212,12 +208,10 @@ public class TodoService {
         var room = string.IsNullOrWhiteSpace(task.Room) ? "未設定" : task.Room;
         AddRoom(room); 
 
-        // 全タスクのIDの最大値を取得（一括登録時にインクリメントする）
         int nextId = _data.Values.SelectMany(t => t).Select(t => t.Id).DefaultIfEmpty(0).Max() + 1;
 
         foreach (var date in dates) {
             if (!_data.ContainsKey(date)) _data[date] = new();
-            // その日の重複チェック
             if (_data[date].Any(t => t.Title == task.Title && t.StartTime == task.StartTime && t.EndTime == task.EndTime && t.UserName == user && !t.IsCompleted)) continue;
 
             DateTime? deadline = null;
@@ -329,78 +323,6 @@ public class TodoService {
                 }
             }
         }
-    }
-
-    public object GetStats(string date, string? userName = null) {
-        var defaultBreakdown = new Dictionary<string, int>();
-        if (!_data.TryGetValue(date, out var tasks) || tasks.Count == 0)
-            return new { progress = 0, emoji = "😴", streakCount = CalculateStreak(date, userName), timeBreakdown = defaultBreakdown, remainingCount = 0, totalTimeFormatted = "0分" };
-
-        var targetTasks = string.IsNullOrEmpty(userName) ? tasks : tasks.Where(t => t.UserName == userName).ToList();
-        if (targetTasks.Count == 0)
-            return new { progress = 0, emoji = "😴", streakCount = CalculateStreak(date, userName), timeBreakdown = defaultBreakdown, remainingCount = 0, totalTimeFormatted = "0分" };
-
-        int total = targetTasks.Count;
-        int completedCount = targetTasks.Count(t => t.IsCompleted);
-        int progress = total > 0 ? (int)Math.Round((double)completedCount / total * 100) : 0;
-        int remaining = total - completedCount;
-
-        string emoji = progress switch { 100 => "🤩", >= 80 => "😊", >= 50 => "😐", > 0 => "💦", _ => "😴" };
-
-        var timeBreakdown = targetTasks.Where(t => t.ActualTime > 0)
-            .GroupBy(t => string.IsNullOrWhiteSpace(t.Category) ? "未分類" : t.Category)
-            .ToDictionary(g => g.Key, g => g.Sum(t => t.ActualTime));
-
-        int totalMins = timeBreakdown.Values.Sum();
-        string formattedTime = totalMins / 60 > 0 ? $"{totalMins / 60}時間 {totalMins % 60}分" : $"{totalMins % 60}分";
-
-        return new { progress = progress, emoji = emoji, streakCount = CalculateStreak(date, userName), timeBreakdown = timeBreakdown, remainingCount = remaining, totalTimeFormatted = formattedTime };
-    }
-
-    public Dictionary<string, object> GetStatsByRange(string startDate, string endDate, string? userName = null) {
-        var result = new Dictionary<string, object>();
-        if (DateTime.TryParse(startDate, out var start) && DateTime.TryParse(endDate, out var end)) {
-            for (var d = start; d <= end; d = d.AddDays(1)) {
-                string dateStr = d.ToString("yyyy-MM-dd");
-                result[dateStr] = GetStats(dateStr, userName);
-            }
-        }
-        return result;
-    }
-
-    public object GetGlobalInsights() {
-        var allTasks = _data.Values.SelectMany(x => x).ToList();
-        if (allTasks.Count == 0) return new { totalCompleted = 0, globalCompletionRate = 0, favoriteCategory = "-" };
-        var completedTasks = allTasks.Where(t => t.IsCompleted).ToList();
-        var favCategory = allTasks.Where(t => t.ActualTime > 0)
-            .GroupBy(t => string.IsNullOrWhiteSpace(t.Category) ? "未分類" : t.Category)
-            .OrderByDescending(g => g.Sum(t => t.ActualTime)).Select(g => g.Key).FirstOrDefault() ?? "-";
-        return new {
-            totalCompleted = completedTasks.Count,
-            globalCompletionRate = (int)Math.Round((double)completedTasks.Count / allTasks.Count * 100),
-            favoriteCategory = favCategory
-        };
-    }
-
-    private int CalculateStreak(string date, string? userName) {
-        if (!DateTime.TryParse(date, out var currentDt)) return 0;
-        int streak = 0; var checkDate = currentDt;
-        if (!HasCompletedTasks(checkDate, userName)) {
-            checkDate = checkDate.AddDays(-1);
-            if (!HasCompletedTasks(checkDate, userName)) return 0;
-        }
-        while (HasCompletedTasks(checkDate, userName)) {
-            streak++; checkDate = checkDate.AddDays(-1);
-        }
-        return streak;
-    }
-
-    private bool HasCompletedTasks(DateTime dt, string? userName) {
-        if (_data.TryGetValue(dt.ToString("yyyy-MM-dd"), out var dailyTasks)) {
-            var targetTasks = string.IsNullOrEmpty(userName) ? dailyTasks : dailyTasks.Where(t => t.UserName == userName);
-            return targetTasks.Any(t => t.IsCompleted);
-        }
-        return false;
     }
 
     private void Save() => File.WriteAllText(FilePath, JsonSerializer.Serialize(_data, _options));

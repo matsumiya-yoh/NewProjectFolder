@@ -36,33 +36,6 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 .excel-export-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(52,199,89,0.4); }
 
 /* =========================================
-   📈 右パネル：インサイト
-========================================= */
-.insights-wrapper { position: fixed; top: 40px; right: 30px; z-index: 400; }
-.insights-trigger { background: rgba(255,255,255,0.7); backdrop-filter: blur(15px); padding: 12px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; color: var(--apple-gray); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 5px 15px rgba(0,0,0,0.08); cursor: default; transition: 0.3s; }
-.insights-panel { position: absolute; top: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(30px); padding: 25px; border-radius: 24px; box-shadow: 0 15px 50px rgba(0,0,0,0.15); width: 280px; border: 1px solid rgba(255,255,255,0.6); opacity: 0; visibility: hidden; transform: translateY(-10px) scale(0.95); transform-origin: top right; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
-.insights-panel::before { content: ''; position: absolute; top: -40px; left: -40px; right: -40px; bottom: -40px; z-index: -1; }
-.insights-wrapper:hover .insights-trigger { opacity: 0; transform: scale(0.9); pointer-events: none; }
-.insights-wrapper:hover .insights-panel { opacity: 1; visibility: visible; transform: translateY(0) scale(1); pointer-events: auto; }
-.panel-section { margin-bottom: 10px; }
-.chart-title { font-size: 11px; font-weight: 800; color: var(--apple-gray); letter-spacing: 1px; margin-bottom: 5px; text-align: center; }
-.insight-details { display: flex; flex-direction: column; gap: 6px; font-size: 12px; margin-bottom: 15px; color: var(--text-main); font-weight: 600; background: rgba(0,0,0,0.03); padding: 12px; border-radius: 12px; }
-.insight-details strong { color: var(--apple-blue); font-size: 16px; font-weight: 800; }
-.progress-bar-bg { width: 100%; height: 8px; background-color: #e5e5ea; border-radius: 4px; overflow: hidden; margin-top: 4px; }
-.progress-bar-fill { height: 100%; background-color: #34c759; transition: width 0.8s; }
-.total-time-display { font-size: 26px; font-weight: 800; color: var(--text-main); text-align: center; margin-bottom: 15px; }
-.stacked-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #e5e5ea; cursor: crosshair; }
-.bar-segment { transition: width 0.8s; height: 100%; }
-.bar-segment:hover { opacity: 0.8; }
-.chart-legend { display: flex; gap: 10px; margin-top: 15px; font-size: 11px; font-weight: 700; color: var(--text-main); justify-content: center; flex-wrap: wrap; }
-.chart-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
-.panel-divider { height: 1px; background: rgba(0,0,0,0.08); margin: 20px 0; }
-.stats-grid { display: flex; justify-content: space-between; text-align: center; }
-.stat-item { display: flex; flex-direction: column; width: 30%; }
-.stat-value { font-size: 18px; font-weight: 800; color: var(--text-main); }
-.stat-label { font-size: 9px; font-weight: 700; color: var(--apple-gray); text-transform: uppercase; margin-top: 4px; }
-
-/* =========================================
    🎩 ヘッダー
 ========================================= */
 .header { position: relative; display: flex; flex-direction: column; align-items: center; margin-top: 40px; padding-bottom: 20px; z-index: 150; }
@@ -93,11 +66,11 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 .cal-grid td.selected-day { background: rgba(0, 122, 255, 0.08); border: 1px solid rgba(0, 122, 255, 0.3); }
 .cal-day-num { font-size: 14px; font-weight: 700; color: var(--text-main); }
 .selected-day .cal-day-num { color: var(--apple-blue); }
-.cal-emoji { font-size: 20px; margin-top: 4px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
 .user-menu { width: 240px; }
 .dropdown-item { padding: 10px 14px; border-radius: 12px; font-size: 14px; font-weight: 700; color: var(--apple-gray); transition: 0.2s; cursor: pointer; }
 .dropdown-item:hover { background-color: rgba(0,122,255,0.08); color: var(--apple-blue); }
 .active-user { background: rgba(0,122,255,0.1); color: var(--apple-blue) !important; }
+.panel-divider { height: 1px; background: rgba(0,0,0,0.08); margin: 20px 0; }
 
 /* =========================================
    🗂️ メインステージ
@@ -202,7 +175,6 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 .popup-section-header { font-size: 13px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; text-align: left; }
 .mt-10 { margin-top: 10px; }
 
-/* 💡 登録ボード（ポップアップ）全体をドラッグ可能にする（デフォルトで下に出現） */
 .cat-popup-menu { 
   position: absolute; 
   top: 100%;             
@@ -232,7 +204,7 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 
 .input-area-wrapper:hover .cat-popup-menu, .input-area-wrapper:focus-within .cat-popup-menu { opacity: 1; visibility: visible; transform: translateY(0) scale(1); pointer-events: auto; }
 
-/* ドラッグ時のスタイル（手前に浮かせる） */
+/* ドラッグ時のスタイル */
 .cdk-drag-preview { opacity: 1 !important; visibility: visible !important; transform: scale(1.02) !important; box-shadow: 0 30px 60px rgba(0, 122, 255, 0.25) !important; border: 2px solid var(--apple-blue) !important; background: rgba(255,255,255,0.98) !important; z-index: 9999 !important; border-radius: 20px; }
 .cdk-drag-animating { transition: transform 250ms cubic-bezier(0, 0, 0.2, 1); }
 .cdk-drag-placeholder { opacity: 0; }
@@ -262,7 +234,7 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 .add-cw-input { padding: 10px; font-size: 12px; width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid rgba(0,0,0,0.1); outline: none; }
 .add-cw-input:focus { border-color: var(--apple-blue); }
 
-/* 下部2段入力コンテナ（ホバーで展開） */
+/* 下部2段入力コンテナ */
 .bottom-input-container { display: flex; flex-direction: column; background: #ffffff; border: 1px solid rgba(0,0,0,0.15); border-radius: 18px; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); z-index: 261; position: relative; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 .bottom-input-container:hover, .bottom-input-container:focus-within { box-shadow: 0 10px 30px rgba(0,122,255,0.15); border-color: var(--apple-blue); transform: translateY(-2px); }
 
@@ -273,7 +245,6 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 .template-tool-wrapper { width: 0; opacity: 0; overflow: visible; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); display: flex; justify-content: center; position: relative; }
 .input-row-hidden { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 
-/* 💡 変更：メニューが開いている(menu-open)時はホバーが外れても表示を維持する */
 .bottom-input-container:hover .template-tool-wrapper, 
 .bottom-input-container:focus-within .template-tool-wrapper,
 .template-tool-wrapper.menu-open { 
@@ -304,11 +275,19 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 .saved-groups-box { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
 .group-chip { background: linear-gradient(135deg, rgba(0,122,255,0.1) 0%, rgba(0,122,255,0.2) 100%); color: var(--apple-blue); border: 1px solid rgba(0,122,255,0.3); padding: 6px 12px; border-radius: 14px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
 .group-chip:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,122,255,0.2); }
+
+.bulk-btn { font-size: 14px; border: none; background: transparent; cursor: pointer; transition: 0.2s; border-radius: 50%; padding: 2px; margin-left: 2px;}
+.bulk-btn:hover { background: rgba(0, 122, 255, 0.1); transform: scale(1.1); }
+
 .del-grp { font-size: 16px; opacity: 0.5; transition: 0.2s; }
 .del-grp:hover { opacity: 1; color: #ff3b30; transform: scale(1.2); }
 
 .save-group-btn { background: var(--apple-blue); color: #fff; border: none; border-radius: 10px; font-size: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,122,255,0.3); white-space: nowrap; }
 .save-group-btn:hover { background: #0056b3; transform: translateY(-2px); }
+
+.shared-btn { background: #34c759; box-shadow: 0 4px 10px rgba(52,199,89,0.3); }
+.shared-btn:hover { background: #28a745; }
+
 
 /* =========================================
    💡 ドラッグ＆ドロップ用のカーソル設定
@@ -316,8 +295,8 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 .cat-popup-menu { cursor: grab; }
 .cat-popup-menu:active { cursor: grabbing; }
 
-.cat-chip, .add-cat-dropdown, .cw-chip, .add-cw-dropdown, .input-row-main, .input-row-hidden, .popup-section-header, .template-popup-header, .group-chip, .save-group-btn, .apple-input { cursor: default; }
-.cat-chip, .cw-chip, .group-chip, .save-group-btn, .del-cat-btn, .del-grp { cursor: pointer; }
+.cat-chip, .add-cat-dropdown, .cw-chip, .add-cw-dropdown, .input-row-main, .input-row-hidden, .popup-section-header, .template-popup-header, .group-chip, .save-group-btn, .bulk-btn, .apple-input { cursor: default; }
+.cat-chip, .cw-chip, .group-chip, .save-group-btn, .bulk-btn, .del-cat-btn, .del-grp { cursor: pointer; }
 .apple-input { cursor: text; }
 
 /* =========================================
@@ -344,11 +323,3 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
   from { top: -50px; opacity: 0; } 
   to { top: 20px; opacity: 1; } 
 }
-
-/* =========================================
-   🏁 その他どうよ
-========================================= */
-.bottom-stats { position: fixed; bottom: 30px; width: 200px; text-align: center; z-index: 10; }
-.prog-label { font-size: 11px; font-weight: 800; color: var(--apple-blue); letter-spacing: 1px; }
-.prog-bar-bg { height: 6px; background: rgba(0,0,0,0.05); border-radius: 3px; margin-top: 5px; overflow: hidden; }
-.prog-bar-fill { height: 100%; background: var(--apple-blue); transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); }

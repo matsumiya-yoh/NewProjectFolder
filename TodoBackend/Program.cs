@@ -12,7 +12,6 @@ app.UseCors();
 // ==================================================
 // 全体・共通系のAPI
 // ==================================================
-app.MapGet("/api/insights", (TodoService service) => Results.Ok(service.GetGlobalInsights()));
 app.MapGet("/api/todos", (TodoService service) => Results.Ok(service.GetAllTodos()));
 
 app.MapGet("/api/todos/range", (string start, string end, string? userName, string? priorityCategory, TodoService service) => 
@@ -21,14 +20,10 @@ app.MapGet("/api/todos/range", (string start, string end, string? userName, stri
 app.MapPost("/api/todos/matrix", (MatrixRequest req, TodoService service) => 
     Results.Ok(service.GetCompanyMatrix(req.StartDate, req.EndDate, req.TeamMembers, req.PriorityCategory)));
 
-// 💡 追加：指定した複数の日付へ一気にタスクを登録するAPI
 app.MapPost("/api/todos/bulk", (BulkTodoRequest req, TodoService service) => {
     service.AddBulk(req.Dates, req.Task);
     return Results.Ok();
 });
-
-app.MapGet("/api/stats/range", (string start, string end, string? userName, TodoService service) => 
-    Results.Ok(service.GetStatsByRange(start, end, userName)));
 
 app.MapGet("/api/export/timesheet", (string start, string end, string viewMode, string? userName, TodoService service) => {
     var csvString = service.GenerateTimesheetCsv(start, end, viewMode, userName);
@@ -61,9 +56,6 @@ todoApi.MapPut("/{id:int}", (string date, int id, TaskUpdateRequest req, TodoSer
     service.UpdateTask(date, id, req);
     return Results.Ok();
 });
-
-todoApi.MapGet("/stats", (string date, string? userName, TodoService service) => 
-    Results.Ok(service.GetStats(date, userName)));
 
 todoApi.MapPut("/toggle/{id:int}", (string date, int id, TodoService service) => {
     service.Toggle(date, id);
@@ -104,7 +96,6 @@ app.MapPost("/api/templates/{userName}", (string userName, TaskTemplate tmpl, To
     return Results.Ok();
 });
 
-// 💡 変更：共有テンプレかどうかを判別するため isShared を受け取る
 app.MapDelete("/api/templates/{userName}/{templateName}", (string userName, string templateName, bool? isShared, TodoService service) => {
     service.DeleteTemplate(userName, templateName, isShared ?? false);
     return Results.Ok();

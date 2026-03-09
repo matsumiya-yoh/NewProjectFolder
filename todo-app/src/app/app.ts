@@ -18,22 +18,6 @@ export interface TodoItem {
   room?: string;          
 }
 
-// 💡 変更：バックエンドで計算された remainingCount と totalTimeFormatted を受け取る
-export interface TodoStats { 
-  progress: number;       
-  emoji: string;          
-  streakCount: number;    
-  timeBreakdown: { [key: string]: number }; 
-  remainingCount: number;
-  totalTimeFormatted: string;
-}
-
-export interface GlobalInsights { 
-  totalCompleted: number;       
-  globalCompletionRate: number; 
-  favoriteCategory: string;     
-}
-
 export interface CategoryInfo {
   name: string;
   color: string;
@@ -57,6 +41,7 @@ export interface TaskTemplate {
   startTime: string;
   endTime: string;
   members: string[];
+  isShared?: boolean;
 }
 
 @Component({
@@ -77,17 +62,12 @@ export class AppComponent implements OnInit {
 
   user: string = ''; 
 
-  // 💡 変更：dailyDataを廃止し、個人用と全体用の配列に直接格納
   matrixData: { [user: string]: { [date: string]: TodoItem[] } } = {}; 
   personalData: { [date: string]: TodoItem[] } = {}; 
 
   dateRange: string[] = [];                       
   selectedDate: string = new Date().toISOString().split('T')[0]; 
   today: string = new Date().toISOString().split('T')[0];
-
-  dailyStats: { [date: string]: TodoStats } = {}; 
-  stats: TodoStats = { progress: 0, emoji: '😴', streakCount: 0, timeBreakdown: {}, remainingCount: 0, totalTimeFormatted: '0分' }; 
-  insights: GlobalInsights = { totalCompleted: 0, globalCompletionRate: 0, favoriteCategory: '-' }; 
 
   editingCategories: { [key: string]: string } = {}; 
   filterCategories: { [date: string]: string } = {}; 
@@ -122,7 +102,6 @@ export class AppComponent implements OnInit {
   private scrollTimeout: any = null; 
   private tsScrollTimer: any = null; 
   private readonly apiUrl = 'http://localhost:5099/api/todo';        
-  private readonly insightsUrl = 'http://localhost:5099/api/insights'; 
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
@@ -132,7 +111,6 @@ export class AppComponent implements OnInit {
     this.fetchCategories();              
     this.fetchRooms(); 
     this.refreshView(this.selectedDate); 
-    this.fetchGlobalInsights();          
     this.initExportDates();             
   }
 
@@ -166,7 +144,7 @@ export class AppComponent implements OnInit {
     if (!trimmed || this.teamMembers.includes(trimmed)) return; 
     this.teamMembers.push(trimmed);
     localStorage.setItem('teamMembers', JSON.stringify(this.teamMembers));
-    this.refreshView(this.selectedDate); // バックエンドから再取得
+    this.refreshView(this.selectedDate); 
     this.selectAccountTarget(trimmed);
   }
 
@@ -188,7 +166,6 @@ export class AppComponent implements OnInit {
       this.fetchTemplates(); 
     }
     this.refreshView(this.selectedDate); 
-    this.fetchGlobalInsights();
     this.cdr.detectChanges(); 
   }
 
@@ -214,16 +191,6 @@ export class AppComponent implements OnInit {
       if (currentWeek.length === 7) { weeks.push(currentWeek); currentWeek = []; }
     }
     this.calendarWeeks = weeks;
-
-    weeks.forEach(w => w.forEach(d => {
-      const dStr = this.formatDate(d);
-      if (!this.dailyStats[dStr]) {
-        const u = this.viewMode === 'personal' ? this.currentUser : '';
-        this.http.get<TodoStats>(`${this.apiUrl}/${dStr}/stats?userName=${encodeURIComponent(u)}`).subscribe(res => {
-          this.dailyStats[dStr] = res; this.cdr.detectChanges();
-        });
-      }
-    }));
   }
 
   formatDate(d: Date): string { return `${d.getFullYear()}-${('0' + (d.getMonth() + 1)).slice(-2)}-${('0' + d.getDate()).slice(-2)}`; }
@@ -242,28 +209,6 @@ export class AppComponent implements OnInit {
     const d = new Date(this.selectedDate); d.setDate(d.getDate() + (offset * 7)); this.selectDateFromCalendar(d); 
   }
 
-  // ==========================================
-  // インサイト・統計
-  // ==========================================
-  fetchGlobalInsights(): void {
-    this.http.get<GlobalInsights>(this.insightsUrl).subscribe(data => {
-      this.insights = data; this.cdr.detectChanges();
-    });
-  }
-
-  // 💡 変更：dailyData廃止に伴い、personalData/matrixDataから算出
-  get todayTotal(): number { 
-    if (this.viewMode === 'personal') return this.personalData[this.today]?.length || 0;
-    return Object.values(this.matrixData).reduce((sum, uData) => sum + (uData[this.today]?.length || 0), 0);
-  }
-  get todayCompleted(): number { 
-    if (this.viewMode === 'personal') return this.personalData[this.today]?.filter(t=>t.isCompleted).length || 0;
-    return Object.values(this.matrixData).reduce((sum, uData) => sum + (uData[this.today]?.filter(t=>t.isCompleted).length || 0), 0);
-  }
-
-  // ==========================================
-  // 案件・部屋管理
-  // ==========================================
   fetchCategories(): void {
     this.http.get<CategoryInfo[]>('http://localhost:5099/api/categories').subscribe(cats => {
       this.categories = cats; 
@@ -322,9 +267,6 @@ export class AppComponent implements OnInit {
   getEditingRoom(date: string, user: string): string { return this.editingRooms[`${date}-${user}`] || '未設定'; }
   setEditingRoom(date: string, user: string, room: string): void { this.editingRooms[`${date}-${user}`] = room; }
 
-  // ==========================================
-  // タスクテンプレート管理
-  // ==========================================
   fetchTemplates(): void {
     if (!this.currentUser) return;
     this.http.get<TaskTemplate[]>(`http://localhost:5099/api/templates/${encodeURIComponent(this.currentUser)}`).subscribe({
@@ -336,7 +278,7 @@ export class AppComponent implements OnInit {
     });
   }
 
-  saveTemplate(templateName: string, date: string, user: string, title: string, start: string, end: string): void {
+  saveTemplate(templateName: string, date: string, user: string, title: string, start: string, end: string, isShared: boolean = false): void {
     const finalName = templateName.trim() || title.trim();
     if (!finalName) {
       this.handleError('テンプレ名、またはタスク名を入力してください', null);
@@ -351,7 +293,8 @@ export class AppComponent implements OnInit {
       room: this.getEditingRoom(date, user),
       startTime: start,
       endTime: end,
-      members: this.coWorkers[`${date}-${user}`] || [] 
+      members: this.coWorkers[`${date}-${user}`] || [],
+      isShared: isShared 
     };
     
     this.http.post(`http://localhost:5099/api/templates/${encodeURIComponent(this.currentUser)}`, payload).subscribe({
@@ -378,18 +321,53 @@ export class AppComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  deleteTemplate(templateName: string, event: Event): void {
+  deleteTemplate(t: TaskTemplate, event: Event): void {
     event.stopPropagation();
     if (!this.currentUser) return;
-    this.http.delete(`http://localhost:5099/api/templates/${encodeURIComponent(this.currentUser)}/${encodeURIComponent(templateName)}`).subscribe({
+    this.http.delete(`http://localhost:5099/api/templates/${encodeURIComponent(this.currentUser)}/${encodeURIComponent(t.templateName)}?isShared=${t.isShared}`).subscribe({
       next: () => this.fetchTemplates(),
       error: (err) => this.handleError('テンプレの削除に失敗しました', err)
     });
   }
 
-  // ==========================================
-  // タイムシート・エクセル出力
-  // ==========================================
+  addBulkTodoFromTemplate(t: TaskTemplate, targetUser: string, event: Event): void {
+    event.stopPropagation();
+    if (this.isAdding) return;
+    this.isAdding = true;
+
+    const allTargets = Array.from(new Set([targetUser, ...(t.members || [])]));
+
+    let idx = 0;
+    const postNext = () => {
+      if (idx >= allTargets.length) {
+        this.refreshView(this.selectedDate); 
+        this.isAdding = false;
+        this.activeTemplateKey = null;
+        this.cdr.detectChanges();
+        return;
+      }
+      
+      const payload = {
+        dates: this.dateRange, 
+        task: {
+          title: t.title,
+          category: t.category,
+          startTime: t.startTime,
+          endTime: t.endTime,
+          room: t.room,
+          actualTime: 0,
+          userName: allTargets[idx]
+        }
+      };
+
+      this.http.post(`http://localhost:5099/api/todos/bulk`, payload).subscribe({
+        next: () => { idx++; postNext(); },
+        error: (err) => { this.handleError(`一括登録に失敗しました (${allTargets[idx]})`, err); idx++; postNext(); }
+      });
+    };
+    postNext();
+  }
+
   initTsDates(): void {
     this.tsDates = []; const center = new Date(this.selectedDate);
     for (let i = -14; i <= 14; i++) {
@@ -439,7 +417,6 @@ export class AppComponent implements OnInit {
   onExportStartDateChange(event: Event) { this.exportStartDate = (event.target as HTMLInputElement).value; }
   onExportEndDateChange(event: Event) { this.exportEndDate = (event.target as HTMLInputElement).value; }
 
-  // 💡 変更：バックエンドでCSVを生成させ、直接ダウンロードURLを開く
   exportToCSVWithRange(): void {
     if (!this.exportStartDate || !this.exportEndDate) return;
     const u = this.viewMode === 'personal' ? encodeURIComponent(this.currentUser) : '';
@@ -447,11 +424,6 @@ export class AppComponent implements OnInit {
     window.open(url, '_blank');
   }
 
-  // ==========================================
-  // メインボード（データフェッチと更新）
-  // ==========================================
-  
-  // 💡 変更：バックエンドのAPI（ソート・マトリックス生成）を直接叩く
   refreshView(centerDateStr: string): void {
     this.dateRange = [];
     const center = new Date(centerDateStr);
@@ -490,20 +462,8 @@ export class AppComponent implements OnInit {
           error: (err) => this.handleError('タスクの読み込みに失敗しました', err)
         });
     }
-
-    const userParam = this.viewMode === 'personal' ? encodeURIComponent(this.currentUser) : '';
-    this.http.get<{ [date: string]: TodoStats }>(`http://localhost:5099/api/stats/range?start=${startDateStr}&end=${endDateStr}&userName=${userParam}`)
-      .subscribe({
-        next: (data) => {
-          this.dailyStats = { ...this.dailyStats, ...data };
-          if (data[this.selectedDate]) this.stats = data[this.selectedDate];
-          this.cdr.detectChanges();
-        },
-        error: (err) => this.handleError('統計の読み込みに失敗しました', err)
-      });
   }
 
-  // 💡 変更：1日分のデータ更新もバックエンドに依存
   fetchDailyData(date: string): void {
     const filter = this.filterCategories[date] || '';
     
@@ -532,17 +492,6 @@ export class AppComponent implements OnInit {
           this.cdr.detectChanges();
         });
     }
-
-    const userParam = this.viewMode === 'personal' ? encodeURIComponent(this.currentUser) : '';
-    this.http.get<{ [date: string]: TodoStats }>(`http://localhost:5099/api/stats/range?start=${date}&end=${date}&userName=${userParam}`)
-      .subscribe(res => {
-        const statsObj = res[date];
-        if (statsObj) {
-          this.dailyStats[date] = statsObj;
-          if (date === this.selectedDate) this.stats = statsObj;
-        }
-        this.cdr.detectChanges();
-      });
   }
 
   private handleError(userMessage: string, error: any): void {
@@ -555,7 +504,6 @@ export class AppComponent implements OnInit {
     }, 4000);
   }
 
-  // 💡 変更：並び替え処理（updateMatrixForDate）を削除し、再取得で対応
   onFilterChange(date: string, event: Event): void {
     this.filterCategories[date] = (event.target as HTMLSelectElement).value;
     this.fetchDailyData(date); 
@@ -569,9 +517,6 @@ export class AppComponent implements OnInit {
   clearCoWorkers(date: string, baseUser: string): void { this.coWorkers[`${date}-${baseUser}`] = []; }
   hasCoWorkers(date: string, baseUser: string): boolean { return (this.coWorkers[`${date}-${baseUser}`]?.length || 0) > 0; }
 
-  // ==========================================
-  // タスク操作
-  // ==========================================
   onInputFocusOut(event: FocusEvent, titleInput: HTMLInputElement, startInput: HTMLInputElement, endInput: HTMLInputElement, date: string, user: string): void {
     if (this.isPopupHovered || this.isTemplateHovered) return; 
 
@@ -594,7 +539,7 @@ export class AppComponent implements OnInit {
     let idx = 0;
     const postNext = () => {
       if (idx >= allTargets.length) {
-        this.fetchDailyData(date); this.fetchGlobalInsights(); this.fetchTimesheet(); this.clearCoWorkers(date, targetUser); 
+        this.fetchDailyData(date); this.fetchTimesheet(); this.clearCoWorkers(date, targetUser); 
         this.isAdding = false; this.cdr.detectChanges();
         return;
       }
@@ -610,19 +555,19 @@ export class AppComponent implements OnInit {
     if (event) event.stopPropagation(); 
     const newAct = Math.max(0, item.actualTime + amount);
     this.http.put(`${this.apiUrl}/${date}/${item.id!}/time`, { startTime: item.startTime, endTime: item.endTime, actualTime: newAct }).subscribe(() => {
-      this.fetchDailyData(date); this.fetchGlobalInsights(); this.fetchTimesheet(); 
+      this.fetchDailyData(date); this.fetchTimesheet(); 
     });
   }
 
   toggleTodo(id: number, date: string): void {
     this.http.put(`${this.apiUrl}/${date}/toggle/${id}`, {}).subscribe(() => {
-      this.fetchDailyData(date); this.fetchGlobalInsights();
+      this.fetchDailyData(date); 
     });
   }
 
   deleteTodo(id: number, date: string): void {
     this.http.delete(`${this.apiUrl}/${date}/${id}`).subscribe(() => {
-      this.fetchDailyData(date); this.fetchGlobalInsights(); this.fetchTimesheet();
+      this.fetchDailyData(date); this.fetchTimesheet();
     });
   }
 
@@ -673,7 +618,6 @@ export class AppComponent implements OnInit {
       this.editingTaskData = { title: '', category: '', startTime: '', endTime: '', room: '', actTime: 0, members: [] };
       this.fetchDailyData(date);
       this.fetchTimesheet();
-      this.fetchGlobalInsights();
     });
   }
 
@@ -686,44 +630,17 @@ export class AppComponent implements OnInit {
   trackByTodo(i: number, item: TodoItem): string | number { return item.id || item.title; }
   trackByCat(i: number, cat: CategoryInfo): string { return cat.name; }
 
-  formatHours(minutes: number): number | string { return minutes ? parseFloat((minutes / 60).toFixed(2)) : 0; }
+formatHours(minutes: number): number | string { return minutes ? parseFloat((minutes / 60).toFixed(2)) : 0; }
   
-  // 💡 変更：バックエンド移行に伴う単純化
   getRemainingCountByUser(date: string, userName: string): number { 
     const tasks = this.viewMode === 'personal' ? this.personalData[date] : this.matrixData[userName]?.[date];
     return tasks?.filter(t => !t.isCompleted).length || 0; 
   }
 
-  getChartPercentage(catName: string): number {
-    if (!this.stats || !this.stats.timeBreakdown) return 0;
-    const totalTime = Object.values(this.stats.timeBreakdown).reduce((a, b) => (a as number) + (b as number), 0) as number; 
-    return totalTime === 0 ? 0 : ((this.stats.timeBreakdown[catName] || 0) / totalTime) * 100; 
-  }
-
-  // 💡 変更：バックエンドのフォーマット済み文字列をそのまま返す
-  getTotalTimeFormatted(): string {
-    return this.stats?.totalTimeFormatted || '0分';
-  }
-  
   getCategoryColor(catName: string): string { return this.categories.find(c => c.name === catName)?.color || '#ccc'; }
   getJapaneseDay(dateStr: string): string { return ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'][new Date(dateStr).getDay()]; }
   getJapaneseDate(dateStr: string): string { const [, m, d] = dateStr.split('-'); return `${Number(m)}月${Number(d)}日`; }
   
-  getCategoryTasksText(catName: string): string {
-    let tasks: TodoItem[] = [];
-    if (this.viewMode === 'personal') {
-      tasks = this.personalData[this.selectedDate]?.filter(t => t.category === catName && t.actualTime > 0) || [];
-    } else {
-      Object.keys(this.matrixData).forEach(u => {
-        const uTasks = this.matrixData[u]?.[this.selectedDate]?.filter(t => t.category === catName && t.actualTime > 0) || [];
-        tasks.push(...uTasks);
-      });
-    }
-    if (!tasks || tasks.length === 0) return `${catName}: 記録なし`;
-    const details = tasks.map(t => `・${t.title} (${t.actualTime}分) ${t.userName ? '['+t.userName+']' : ''}`).join('\n');
-    return `【${catName}】計${tasks.reduce((sum, t) => sum + t.actualTime, 0)}分 (${Math.round(this.getChartPercentage(catName))}%)\n----------------\n${details}`;
-  }
-
   onScroll(event: any): void {
     if (this.scrollTimeout) return; 
     this.scrollTimeout = setTimeout(() => {

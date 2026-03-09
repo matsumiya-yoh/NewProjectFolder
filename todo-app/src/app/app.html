@@ -35,37 +35,6 @@
     </div>
   </div>
 
-  <div class="insights-wrapper">
-    <div class="insights-trigger">📊 インサイト・記録</div>
-    <div class="insights-panel">
-      <div class="panel-section">
-        <div class="chart-title">今日のタスク達成度</div>
-        <div class="insight-details">
-          <span>完了タスク: <strong>{{ todayCompleted }} / {{ todayTotal }}</strong> 件</span>
-          <span>達成率: <strong>{{ dailyStats[today]?.progress || 0 }}%</strong></span>
-          <div class="progress-bar-bg"><div class="progress-bar-fill" [style.width.%]="dailyStats[today]?.progress || 0"></div></div>
-        </div>
-      </div>
-      <div class="panel-divider"></div>
-      <div class="panel-section">
-        <div class="chart-title">本日の作業時間</div>
-        <div class="total-time-display">{{ getTotalTimeFormatted() }}</div>
-        <div class="stacked-bar">
-          <div *ngFor="let cat of categories" class="bar-segment" [style.width.%]="getChartPercentage(cat.name)" [style.background]="cat.color" [title]="getCategoryTasksText(cat.name)"></div>
-        </div>
-        <div class="chart-legend">
-          <span *ngFor="let cat of categories"><i [style.background]="cat.color"></i>{{ cat.name }} {{ getChartPercentage(cat.name) | number:'1.0-0' }}%</span>
-        </div>
-      </div>
-      <div class="panel-divider"></div>
-      <div class="panel-section stats-grid">
-        <div class="stat-item"><span class="stat-value">{{ insights.totalCompleted }}</span><span class="stat-label">累計完了数</span></div>
-        <div class="stat-item"><span class="stat-value">{{ insights.favoriteCategory }}</span><span class="stat-label">主な作業</span></div>
-        <div class="stat-item"><span class="stat-value">{{ insights.globalCompletionRate }}%</span><span class="stat-label">達成率</span></div>
-      </div>
-    </div>
-  </div>
-
   <div class="header">
     <p class="logo">TIMEFLOW</p>
     <div class="center-control-layout">
@@ -99,7 +68,6 @@
                 <tr *ngFor="let week of calendarWeeks">
                   <td *ngFor="let day of week" (click)="selectDateFromCalendar(day)" [class.other-month]="day.getMonth() !== currentMonth.getMonth()" [class.selected-day]="formatDate(day) === selectedDate">
                     <div class="cal-day-num">{{ day.getDate() }}</div>
-                    <div class="cal-emoji">{{ dailyStats[formatDate(day)]?.emoji || '😴' }}</div>
                   </td>
                 </tr>
               </tbody>
@@ -267,16 +235,21 @@
                       <div class="saved-groups-box">
                         <div *ngIf="savedTemplates.length === 0" class="empty-text">保存されたテンプレはありません</div>
                         <div class="group-chip" *ngFor="let t of savedTemplates" (click)="loadTemplate(t, date, currentUser, newT, startInput, endInput, $event)">
-                          {{ t.templateName }} <span class="del-grp" (click)="deleteTemplate(t.templateName, $event)">×</span>
+                          {{ t.isShared ? '🏢' : '🔒' }} {{ t.templateName }} 
+                          <button class="bulk-btn" title="全日付に一括登録" (click)="addBulkTodoFromTemplate(t, currentUser, $event)">🚀</button>
+                          <span class="del-grp" (click)="deleteTemplate(t, $event)">×</span>
                         </div>
                       </div>
 
                       <div class="input-divider" style="margin: 8px 0;"></div>
                       <div class="template-popup-header">(+) 現在の内容を保存</div>
                       
-                      <div class="input-group" style="display: flex; gap: 5px; margin-top: 5px;">
-                        <input #grpName class="apple-input add-cw-input" placeholder="テンプレ名..." [value]="newT.value" autocomplete="off" (keydown.enter)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value)">
-                        <button class="save-group-btn" style="margin-top: 0; padding: 8px 12px;" (click)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value)">保存</button>
+                      <div class="input-group" style="display: flex; gap: 5px; margin-top: 5px; flex-direction: column;">
+                        <input #grpName class="apple-input add-cw-input" placeholder="テンプレ名..." [value]="newT.value" autocomplete="off" (keydown.enter)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value, false)">
+                        <div style="display: flex; gap: 5px;">
+                          <button class="save-group-btn" style="flex:1;" (click)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value, false)">🔒 個人用</button>
+                          <button class="save-group-btn shared-btn" style="flex:1;" (click)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value, true)">🏢 共有用</button>
+                        </div>
                       </div>
 
                     </div>
@@ -298,7 +271,6 @@
                   </div>
                 </div>
               </div>
-
             </div>
 
           </div>
@@ -443,16 +415,21 @@
                       <div class="saved-groups-box">
                         <div *ngIf="savedTemplates.length === 0" class="empty-text">保存されたテンプレはありません</div>
                         <div class="group-chip" *ngFor="let t of savedTemplates" (click)="loadTemplate(t, date, user, newT, startInput, endInput, $event)">
-                          {{ t.templateName }} <span class="del-grp" (click)="deleteTemplate(t.templateName, $event)">×</span>
+                          {{ t.isShared ? '🏢' : '🔒' }} {{ t.templateName }} 
+                          <button class="bulk-btn" title="全日付に一括登録" (click)="addBulkTodoFromTemplate(t, user, $event)">🚀</button>
+                          <span class="del-grp" (click)="deleteTemplate(t, $event)">×</span>
                         </div>
                       </div>
 
                       <div class="input-divider" style="margin: 8px 0;"></div>
                       <div class="template-popup-header">(+) 現在の内容を保存</div>
                       
-                      <div class="input-group" style="display: flex; gap: 5px; margin-top: 5px;">
-                        <input #grpName class="apple-input add-cw-input" placeholder="テンプレ名..." [value]="newT.value" autocomplete="off" (keydown.enter)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value)">
-                        <button class="save-group-btn" style="margin-top: 0; padding: 8px 12px;" (click)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value)">保存</button>
+                      <div class="input-group" style="display: flex; gap: 5px; margin-top: 5px; flex-direction: column;">
+                        <input #grpName class="apple-input add-cw-input" placeholder="テンプレ名..." [value]="newT.value" autocomplete="off" (keydown.enter)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value, false)">
+                        <div style="display: flex; gap: 5px;">
+                          <button class="save-group-btn" style="flex:1;" (click)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value, false)">🔒 個人用</button>
+                          <button class="save-group-btn shared-btn" style="flex:1;" (click)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value, true)">🏢 共有用</button>
+                        </div>
                       </div>
 
                     </div>
@@ -484,9 +461,4 @@
     </ng-container>
 
   </div> 
-  <div class="bottom-stats">
-    <div class="prog-label">選択日の達成率 {{ stats?.progress || 0 }}%</div>
-    <div class="prog-bar-bg"><div class="prog-bar-fill" [style.width.%]="stats?.progress || 0"></div></div>
-  </div>
-
 </div>
