@@ -1,0 +1,354 @@
+:root { 
+  --apple-blue: #007aff; 
+  --apple-gray: #8e8e93; 
+  --bg-color: #f5f5f7;   
+  --text-main: #1d1d1f;  
+}
+
+body { margin: 0; background: var(--bg-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
+.app-viewport { height: 100vh; display: flex; flex-direction: column; align-items: center; }
+
+/* =========================================
+   📊 左パネル：工数一覧表
+========================================= */
+.timesheet-wrapper { position: fixed; top: 40px; left: 30px; z-index: 400; }
+.icon-trigger { width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--apple-gray); background: rgba(255,255,255,0.7); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 5px 15px rgba(0,0,0,0.08); cursor: default; transition: 0.3s; }
+.timesheet-panel { position: absolute; top: 0; left: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(30px); padding: 20px; border-radius: 24px; box-shadow: 0 15px 50px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.6); opacity: 0; visibility: hidden; transform: translateY(-10px) scale(0.95); transform-origin: top left; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; width: auto; max-width: 80vw; }
+.timesheet-panel::before { content: ''; position: absolute; top: -40px; left: -40px; right: -40px; bottom: -40px; z-index: -1; }
+.timesheet-wrapper:hover .icon-trigger { opacity: 0; transform: scale(0.8); pointer-events: none; }
+.timesheet-wrapper:hover .timesheet-panel { opacity: 1; visibility: visible; transform: translateY(0) scale(1); pointer-events: auto; }
+.ts-month-title { font-size: 16px; font-weight: 800; color: var(--apple-blue); margin-bottom: 10px; padding-left: 5px; text-align: left; }
+.ts-scroll-container { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding-bottom: 5px; max-width: 600px; scroll-behavior: auto; }
+.ts-scroll-container::-webkit-scrollbar { display: none; }
+.ts-table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: right; white-space: nowrap; }
+.ts-table th { padding: 8px 10px; color: var(--apple-gray); border-bottom: 1px solid #eee; font-weight: 700; }
+.ts-table td { padding: 10px; border-bottom: 1px solid #f5f5f7; color: var(--text-main); font-weight: 600; }
+.sticky-col { position: sticky; left: 0; background: rgba(255,255,255,0.95); z-index: 2; border-right: 1px solid #eee; }
+.ts-table .cat-name { text-align: left; color: var(--apple-blue); font-weight: 700; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.ts-table .has-time { color: #34c759; font-weight: 800; }
+.total-row td { border-top: 2px solid rgba(0,0,0,0.1); font-weight: 900; color: var(--apple-blue); padding-top: 12px; }
+.total-row .sticky-col { background: #f9f9f9; }
+.export-controls-container { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1); }
+.export-date-range { display: flex; align-items: center; gap: 8px; font-weight: bold; color: var(--apple-gray); }
+.small-date-input { padding: 6px 10px; font-size: 11px; border-radius: 8px; background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.05); color: var(--text-main); outline: none; transition: 0.2s; }
+.small-date-input:focus { background: #fff; border-color: var(--apple-blue); }
+.excel-export-btn { background: #34c759; color: white; border: none; border-radius: 20px; padding: 8px 16px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 10px rgba(52,199,89,0.3); transition: 0.2s; outline: none; }
+.excel-export-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(52,199,89,0.4); }
+
+/* =========================================
+   📈 右パネル：インサイト
+========================================= */
+.insights-wrapper { position: fixed; top: 40px; right: 30px; z-index: 400; }
+.insights-trigger { background: rgba(255,255,255,0.7); backdrop-filter: blur(15px); padding: 12px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; color: var(--apple-gray); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 5px 15px rgba(0,0,0,0.08); cursor: default; transition: 0.3s; }
+.insights-panel { position: absolute; top: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(30px); padding: 25px; border-radius: 24px; box-shadow: 0 15px 50px rgba(0,0,0,0.15); width: 280px; border: 1px solid rgba(255,255,255,0.6); opacity: 0; visibility: hidden; transform: translateY(-10px) scale(0.95); transform-origin: top right; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+.insights-panel::before { content: ''; position: absolute; top: -40px; left: -40px; right: -40px; bottom: -40px; z-index: -1; }
+.insights-wrapper:hover .insights-trigger { opacity: 0; transform: scale(0.9); pointer-events: none; }
+.insights-wrapper:hover .insights-panel { opacity: 1; visibility: visible; transform: translateY(0) scale(1); pointer-events: auto; }
+.panel-section { margin-bottom: 10px; }
+.chart-title { font-size: 11px; font-weight: 800; color: var(--apple-gray); letter-spacing: 1px; margin-bottom: 5px; text-align: center; }
+.insight-details { display: flex; flex-direction: column; gap: 6px; font-size: 12px; margin-bottom: 15px; color: var(--text-main); font-weight: 600; background: rgba(0,0,0,0.03); padding: 12px; border-radius: 12px; }
+.insight-details strong { color: var(--apple-blue); font-size: 16px; font-weight: 800; }
+.progress-bar-bg { width: 100%; height: 8px; background-color: #e5e5ea; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.progress-bar-fill { height: 100%; background-color: #34c759; transition: width 0.8s; }
+.total-time-display { font-size: 26px; font-weight: 800; color: var(--text-main); text-align: center; margin-bottom: 15px; }
+.stacked-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #e5e5ea; cursor: crosshair; }
+.bar-segment { transition: width 0.8s; height: 100%; }
+.bar-segment:hover { opacity: 0.8; }
+.chart-legend { display: flex; gap: 10px; margin-top: 15px; font-size: 11px; font-weight: 700; color: var(--text-main); justify-content: center; flex-wrap: wrap; }
+.chart-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.panel-divider { height: 1px; background: rgba(0,0,0,0.08); margin: 20px 0; }
+.stats-grid { display: flex; justify-content: space-between; text-align: center; }
+.stat-item { display: flex; flex-direction: column; width: 30%; }
+.stat-value { font-size: 18px; font-weight: 800; color: var(--text-main); }
+.stat-label { font-size: 9px; font-weight: 700; color: var(--apple-gray); text-transform: uppercase; margin-top: 4px; }
+
+/* =========================================
+   🎩 ヘッダー
+========================================= */
+.header { position: relative; display: flex; flex-direction: column; align-items: center; margin-top: 40px; padding-bottom: 20px; z-index: 150; }
+.logo { font-weight: 900; color: var(--apple-blue); letter-spacing: 3px; font-size: 13px; margin: 0 0 10px 0; cursor: default; }
+.center-control-layout { display: flex; align-items: center; gap: 15px; }
+.date-control-stack { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.date-picker-btn { background: #fff; border: 1px solid rgba(0,0,0,0.15); border-radius: 8px; color: var(--text-main); font-weight: 800; box-shadow: 0 2px 6px rgba(0,0,0,0.04); cursor: pointer; transition: 0.2s; outline: none; display: flex; align-items: center; justify-content: center; }
+.date-picker-btn:hover { box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15); border-color: rgba(0, 122, 255, 0.3); color: var(--apple-blue); }
+.account-btn { font-size: 20px; padding: 16px 24px; height: 100%; box-sizing: border-box; }
+.date-btn { font-size: 16px; padding: 6px 16px; width: 100%; box-sizing: border-box; }
+.week-nav-buttons { display: flex; gap: 6px; width: 100%; }
+.week-nav-buttons button { flex: 1; background: #fff; border: 1px solid rgba(0,0,0,0.15); border-radius: 6px; font-size: 12px; font-weight: 700; color: var(--text-main); cursor: pointer; transition: 0.2s; padding: 6px 0; outline: none; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+.week-nav-buttons button:hover { background: rgba(0, 122, 255, 0.05); color: var(--apple-blue); border-color: rgba(0, 122, 255, 0.3); }
+
+/* =========================================
+   📅 ポップアップメニュー
+========================================= */
+.custom-calendar-popup { position: absolute; top: 120%; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); padding: 20px; border-radius: 24px; box-shadow: 0 15px 40px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.6); width: 340px; z-index: 100; }
+.custom-calendar-popup::before { content: ''; position: absolute; top: -40px; left: 0; width: 100%; height: 40px; background: transparent; }
+.cal-header { display: flex; justify-content: space-between; align-items: center; font-weight: 800; margin-bottom: 15px; color: var(--text-main); font-size: 16px;}
+.cal-nav-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--apple-gray); transition: 0.2s; padding: 5px 15px; border-radius: 10px; }
+.cal-nav-btn:hover { background: rgba(0,0,0,0.05); color: var(--apple-blue); }
+.cal-grid { width: 100%; border-collapse: collapse; text-align: center; }
+.cal-grid th { font-size: 11px; color: var(--apple-gray); padding-bottom: 10px; font-weight: 700; }
+.cal-grid td { padding: 8px 4px; cursor: pointer; border-radius: 14px; transition: 0.2s; border: 1px solid transparent; }
+.cal-grid td:hover { background: rgba(0, 122, 255, 0.05); }
+.cal-grid td.other-month { opacity: 0.3; }
+.cal-grid td.selected-day { background: rgba(0, 122, 255, 0.08); border: 1px solid rgba(0, 122, 255, 0.3); }
+.cal-day-num { font-size: 14px; font-weight: 700; color: var(--text-main); }
+.selected-day .cal-day-num { color: var(--apple-blue); }
+.cal-emoji { font-size: 20px; margin-top: 4px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
+.user-menu { width: 240px; }
+.dropdown-item { padding: 10px 14px; border-radius: 12px; font-size: 14px; font-weight: 700; color: var(--apple-gray); transition: 0.2s; cursor: pointer; }
+.dropdown-item:hover { background-color: rgba(0,122,255,0.08); color: var(--apple-blue); }
+.active-user { background: rgba(0,122,255,0.1); color: var(--apple-blue) !important; }
+
+/* =========================================
+   🗂️ メインステージ
+========================================= */
+.board-viewport { display: block; width: 100vw; height: calc(100vh - 150px); overflow: auto; scroll-behavior: smooth; position: relative; z-index: 1;}
+.board-viewport::-webkit-scrollbar { display: none; }
+.side-spacer { flex: 0 0 10vw; }
+.matrix-header-row { display: flex; position: sticky; top: 0; z-index: 100; background: var(--bg-color); width: max-content; border-bottom: 2px solid rgba(0,0,0,0.05); }
+.matrix-corner { position: sticky; left: 0; top: 0; width: 140px; flex-shrink: 0; z-index: 110; background: var(--bg-color); border-right: 2px solid rgba(0,0,0,0.05); }
+.matrix-date-cell { width: 380px; flex-shrink: 0; padding: 15px 25px; text-align: center; }
+.date-header-content { background: rgba(255,255,255,0.85); backdrop-filter: blur(10px); padding: 15px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid rgba(255,255,255,0.5); }
+.matrix-date-cell .weekday { color: var(--apple-blue); font-weight: 700; font-size: 11px; text-transform: uppercase; margin: 0 0 2px 0; }
+.matrix-date-cell h2 { font-size: 24px; margin: 0; font-weight: 800; letter-spacing: -1px; }
+.filter-select { background: rgba(0,0,0,0.03); border: none; padding: 8px 16px; border-radius: 12px; font-size: 12px; font-weight: bold; color: var(--apple-gray); outline: none; cursor: pointer; width: 100%; margin-top: 10px; transition: 0.2s; }
+.filter-select:hover { background: rgba(0,0,0,0.06); }
+
+/* =========================================
+   👤 ユーザー行 ＆ カード
+========================================= */
+.matrix-user-row { display: flex; width: max-content; margin-bottom: 120px; align-items: stretch; }
+.matrix-user-row:hover, .matrix-user-row:focus-within { position: relative; z-index: 998; }
+.matrix-data-cell:hover, .matrix-data-cell:focus-within { position: relative; z-index: 999; }
+
+.matrix-user-cell { position: sticky; left: 0; width: 140px; flex-shrink: 0; z-index: 90; background: var(--bg-color); padding: 0 10px 0 20px; display: flex; }
+.user-name-card { background: rgba(255,255,255,0.85); backdrop-filter: blur(10px); border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border: 1px solid rgba(255,255,255,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 20px 10px; }
+.user-name-card .avatar { width: 50px; height: 50px; border-radius: 50%; background: var(--apple-blue); color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,122,255,0.3); }
+.user-name-card .u-name { margin-top: 12px; font-weight: 800; color: var(--text-main); font-size: 13px; }
+.matrix-data-cell { width: 380px; flex-shrink: 0; padding: 0 25px; }
+
+/* カード本体 */
+.day-card { position: relative; z-index: 1; background: rgba(255,255,255,0.9); border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.04); padding: 25px; display: flex; flex-direction: column; height: 100%; border: 1px solid rgba(255,255,255,0.8); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s; opacity: 0.7; }
+.day-card:hover, .day-card:focus-within, .day-card.card-hovered { opacity: 1; transform: scale(1.02) translateY(-5px); box-shadow: 0 20px 50px rgba(0,0,0,0.12); border-color: rgba(0, 122, 255, 0.3); z-index: 1000; }
+.day-card.highlight-card { border: 2px solid rgba(0,122,255,0.4); box-shadow: 0 15px 40px rgba(0,122,255,0.15); opacity: 1;}
+
+.card-top-row { display: flex; justify-content: flex-end; margin-bottom: 10px;}
+.remaining-count { font-size: 12px; font-weight: 600; color: #ff3b30; margin: 0; }
+.no-tasks { font-size: 11px; font-weight: 600; color: var(--apple-gray); text-align: center; padding: 12px; background: rgba(0,0,0,0.02); border-radius: 12px; margin-bottom: 10px; border: 1px dashed rgba(0,0,0,0.1); }
+
+/* =========================================
+   📝 タスクリスト
+========================================= */
+.todo-list { flex: none; overflow-y: visible; padding-right: 0; }
+.todo-item { display: flex; align-items: center; padding: 10px 12px; background: #ffffff; border-radius: 14px; margin-bottom: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.02); transition: background 0.3s, transform 0.2s; }
+.todo-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+.todo-item.highlight { background: rgba(0, 122, 255, 0.05); border: 1px solid rgba(0, 122, 255, 0.2); }
+.cb-apple { width: 20px; height: 20px; margin-right: 12px; cursor: pointer; accent-color: var(--apple-blue); flex-shrink: 0; }
+.task-main-info { flex: 1; display: flex; flex-direction: column; gap: 4px; margin-right: 10px; cursor: default; }
+.info-row { display: flex; justify-content: space-between; align-items: center; }
+.todo-title { font-size: 14px; font-weight: 700; line-height: 1.2; transition: 0.3s; color: var(--text-main); }
+.todo-title.done { text-decoration: line-through; color: var(--apple-gray); opacity: 0.5; }
+
+.time-range-display { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; color: var(--apple-gray); }
+.cat-room-info { display: flex; align-items: center; gap: 6px; }
+.todo-cat { font-size: 10px; color: var(--apple-gray); font-weight: 700; padding: 2px 6px; background: rgba(0,0,0,0.04); border-radius: 6px; display: inline-block; }
+.todo-room { font-size: 10px; color: #ff9500; font-weight: 800; padding: 2px 6px; background: rgba(255,149,0,0.1); border-radius: 6px; display: inline-block; }
+
+.time-inline { display: flex; align-items: center; background: rgba(0,0,0,0.02); padding: 3px 6px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.04); white-space: nowrap; }
+.time-inline.act-inline { background: rgba(0, 122, 255, 0.03); border-color: rgba(0, 122, 255, 0.1); }
+.t-label { font-size: 10px; font-weight: 800; color: var(--apple-gray); margin-right: 2px; }
+.t-val { font-size: 12px; font-weight: 800; color: var(--text-main); min-width: 32px; text-align: right; margin-right: 8px; }
+.act-inline .t-label, .act-inline .t-val { color: var(--apple-blue); }
+.t-btn { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 6px; width: 22px; height: 22px; font-size: 13px; font-weight: bold; color: var(--apple-gray); cursor: pointer; display: flex; align-items: center; justify-content: center; margin-left: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.2s; outline: none; }
+.t-btn:hover { color: var(--apple-blue); transform: translateY(-1px); box-shadow: 0 3px 6px rgba(0,0,0,0.1); border-color: rgba(0, 122, 255, 0.3); }
+.t-btn:active { transform: scale(0.95); box-shadow: none; }
+.act-inline .t-btn { color: var(--apple-blue); border-color: rgba(0, 122, 255, 0.2); }
+
+.action-buttons { display: flex; flex-direction: column; gap: 4px; opacity: 1 !important; transition: 0.2s; } 
+.move-btn, .del-btn, .edit-btn { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+.move-btn { background: rgba(0,122,255,0.1); color: var(--apple-blue); }
+.move-btn:hover { background: rgba(0,122,255,0.2); transform: scale(1.1); }
+.del-btn { background: rgba(255,59,48,0.1); color: #ff3b30; }
+.del-btn:hover { background: rgba(255,59,48,0.2); transform: scale(1.1); }
+.edit-btn { background: rgba(255, 149, 0, 0.1); color: #ff9500; }
+.edit-btn:hover { background: rgba(255, 149, 0, 0.2); transform: scale(1.1); }
+
+/* =========================================
+   ✏️ タスク編集UI
+========================================= */
+.editing-mode { flex-direction: column; align-items: stretch; background: rgba(255,149,0,0.05); border: 1px solid rgba(255,149,0,0.3); padding: 15px; }
+.edit-form-container { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.edit-title-input { padding: 10px; font-size: 14px; width: 100%; border: 1px solid rgba(0,0,0,0.1); background: #fff; border-radius: 10px; }
+.edit-row-flex { display: flex; gap: 10px; width: 100%; }
+.edit-flex-item { flex: 1; margin-top: 0; background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 8px; }
+.edit-time-box { display: flex; align-items: center; gap: 10px; background: #fff; padding: 8px 12px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); font-size: 12px; font-weight: bold; color: var(--apple-gray); }
+.time-pick { border: none; background: rgba(0,0,0,0.03); border-radius: 8px; padding: 5px; font-weight: bold; color: var(--text-main); }
+
+.edit-members-box { background: #fff; padding: 10px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); }
+.edit-member-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.edit-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+
+.edit-cancel-btn, .edit-save-btn { display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 20px; padding: 8px 22px; font-size: 13px; font-weight: 800; cursor: pointer; transition: all 0.2s; outline: none; color: #ffffff !important; opacity: 1 !important; visibility: visible !important; }
+.edit-cancel-btn { background-color: #8e8e93 !important; box-shadow: 0 4px 10px rgba(142, 142, 147, 0.3); }
+.edit-cancel-btn:hover { background-color: #7c7c80 !important; transform: translateY(-2px); }
+.edit-save-btn { background-color: #007aff !important; box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3); }
+.edit-save-btn:hover { background-color: #0056b3 !important; transform: translateY(-2px); }
+
+/* =========================================
+   ✍️ 登録ボード（ポップアップ）と入力エリア
+========================================= */
+.input-area-wrapper { margin-top: auto; padding-top: 15px; position: relative; }
+.popup-section { border: 1px solid rgba(0,0,0,0.2); border-radius: 12px; padding: 12px; background: #fff; box-sizing: border-box; }
+.popup-section-header { font-size: 13px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; text-align: left; }
+.mt-10 { margin-top: 10px; }
+
+/* 💡 登録ボード（ポップアップ）全体をドラッグ可能にする（デフォルトで下に出現） */
+.cat-popup-menu { 
+  position: absolute; 
+  top: 100%;             
+  left: 0; 
+  width: 100%; 
+  margin-top: 10px;      
+  background: rgba(255, 255, 255, 0.98); 
+  backdrop-filter: blur(20px); 
+  border: 1px solid rgba(0,0,0,0.1); 
+  border-radius: 20px; 
+  padding: 15px; 
+  box-shadow: 0 15px 50px rgba(0,0,0,0.2); 
+  opacity: 0; 
+  visibility: hidden; 
+  transform: translateY(-10px) scale(0.98); 
+  transform-origin: top center;            
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
+  z-index: 1000; 
+  pointer-events: none; 
+  max-height: 40vh; 
+  overflow-y: auto; 
+}
+.cat-popup-menu::-webkit-scrollbar { width: 6px; }
+.cat-popup-menu::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+
+.cat-popup-menu.cdk-drag-dragging { opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; }
+
+.input-area-wrapper:hover .cat-popup-menu, .input-area-wrapper:focus-within .cat-popup-menu { opacity: 1; visibility: visible; transform: translateY(0) scale(1); pointer-events: auto; }
+
+/* ドラッグ時のスタイル（手前に浮かせる） */
+.cdk-drag-preview { opacity: 1 !important; visibility: visible !important; transform: scale(1.02) !important; box-shadow: 0 30px 60px rgba(0, 122, 255, 0.25) !important; border: 2px solid var(--apple-blue) !important; background: rgba(255,255,255,0.98) !important; z-index: 9999 !important; border-radius: 20px; }
+.cdk-drag-animating { transition: transform 250ms cubic-bezier(0, 0, 0.2, 1); }
+.cdk-drag-placeholder { opacity: 0; }
+
+.cat-chip-container { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.cat-chip { padding: 6px 14px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.2s; color: var(--apple-gray); display: flex; align-items: center; position: relative; gap: 8px; }
+.cat-chip.active { color: #fff; transform: scale(1.05); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+.del-cat-btn { font-size: 10px; opacity: 0.4; transition: 0.2s; padding: 2px 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.del-cat-btn:hover { opacity: 1; color: white; background: #ff3b30; transform: scale(1.2); }
+.cat-chip.active .del-cat-btn { opacity: 0.7; color: white; }
+.cat-chip.active .del-cat-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.3); }
+
+.add-cat-chip { position: relative; background: #e5e5ea !important; color: var(--text-main) !important; font-weight: 800; border-radius: 12px; }
+.add-cat-dropdown { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(10px); opacity: 0; visibility: hidden; background: white; padding: 10px; border-radius: 16px; box-shadow: 0 -10px 30px rgba(0,0,0,0.15); transition: all 0.3s; z-index: 1010; width: 200px; margin-bottom: 5px;}
+.add-cat-chip:hover .add-cat-dropdown, .add-cat-dropdown:focus-within { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+
+.coworker-selector-box { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cw-header { border: 1px solid rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 800; color: var(--text-main); }
+.cw-chip { border: 1px solid rgba(0,0,0,0.2); background: #fff; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: bold; color: var(--apple-gray); cursor: pointer; transition: 0.2s; }
+.cw-chip.active { border-color: var(--apple-blue); color: var(--apple-blue); background: rgba(0, 122, 255, 0.05); }
+.fixed-chip { color: var(--text-main); cursor: default; border-color: rgba(0,0,0,0.3); background: rgba(0,0,0,0.02); }
+.cw-cross { font-size: 16px; color: var(--apple-gray); font-weight: 300; }
+
+.add-cw-chip { position: relative; background: #e5e5ea !important; color: var(--text-main) !important; font-weight: 800; border-style: dashed; }
+.add-cw-dropdown { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(10px); opacity: 0; visibility: hidden; background: white; padding: 10px; border-radius: 16px; box-shadow: 0 -10px 30px rgba(0,0,0,0.15); transition: all 0.3s; z-index: 1010; width: 150px; margin-bottom: 5px;}
+.add-cw-chip:hover .add-cw-dropdown, .add-cw-dropdown:focus-within { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+.add-cw-input { padding: 10px; font-size: 12px; width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid rgba(0,0,0,0.1); outline: none; }
+.add-cw-input:focus { border-color: var(--apple-blue); }
+
+/* 下部2段入力コンテナ（ホバーで展開） */
+.bottom-input-container { display: flex; flex-direction: column; background: #ffffff; border: 1px solid rgba(0,0,0,0.15); border-radius: 18px; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); z-index: 261; position: relative; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+.bottom-input-container:hover, .bottom-input-container:focus-within { box-shadow: 0 10px 30px rgba(0,122,255,0.15); border-color: var(--apple-blue); transform: translateY(-2px); }
+
+.input-row-main { display: flex; align-items: center; padding: 4px 8px; }
+.task-input-field { flex: 1; border: none; background: transparent; padding: 12px 8px; font-size: 15px; font-weight: 600; color: var(--text-main); outline: none; transition: 0.3s; }
+.task-input-field::placeholder { color: #a1a1a6; }
+
+.template-tool-wrapper { width: 0; opacity: 0; overflow: visible; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); display: flex; justify-content: center; position: relative; }
+.input-row-hidden { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* 💡 変更：メニューが開いている(menu-open)時はホバーが外れても表示を維持する */
+.bottom-input-container:hover .template-tool-wrapper, 
+.bottom-input-container:focus-within .template-tool-wrapper,
+.template-tool-wrapper.menu-open { 
+  width: 45px; opacity: 1; margin-left: 8px; 
+}
+.bottom-input-container:hover .input-row-hidden, .bottom-input-container:focus-within .input-row-hidden { max-height: 60px; opacity: 1; margin-top: 5px;}
+
+.template-icon-btn { background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.05); border-radius: 10px; width: 38px; height: 38px; font-size: 18px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; outline: none; }
+.template-icon-btn:hover { background: rgba(0, 122, 255, 0.1); border-color: var(--apple-blue); }
+
+/* 下段（隠し）：時間入力 */
+.input-divider { height: 1px; background: rgba(0,0,0,0.06); margin: 0 12px; }
+.input-row-time { display: flex; align-items: center; justify-content: center; padding: 8px 0; gap: 12px; }
+.time-picker-wrap { display: flex; align-items: center; background: rgba(0,0,0,0.03); border-radius: 8px; padding: 4px 12px; border: 1px solid transparent; transition: 0.2s; }
+.time-picker-wrap:focus-within { background: #fff; border-color: var(--apple-blue); box-shadow: 0 2px 8px rgba(0,122,255,0.1); }
+.time-icon { font-size: 14px; margin-right: 8px; opacity: 0.6; }
+.time-pick-mini { border: none; background: transparent; font-size: 13px; font-weight: 700; color: var(--text-main); outline: none; width: 75px; cursor: pointer; }
+.time-separator { font-weight: 800; color: var(--apple-gray); font-size: 14px; }
+
+/* 統合テンプレートメニュー */
+.template-popup-menu { position: absolute; bottom: 100%; right: -10px; margin-bottom: 12px; background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); border: 1px solid rgba(0,0,0,0.15); border-radius: 16px; padding: 15px; box-shadow: 0 -15px 50px rgba(0,0,0,0.25); display: flex; flex-direction: column; z-index: 1100; animation: popUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: bottom right; width: 220px; }
+@keyframes popUp { from { opacity: 0; transform: translateY(10px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes popDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+.template-popup-header { font-size: 11px; font-weight: 800; color: var(--apple-blue); margin-bottom: 8px; text-align: left; }
+.empty-text { font-size: 11px; color: var(--apple-gray); padding: 5px 0; }
+
+.saved-groups-box { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+.group-chip { background: linear-gradient(135deg, rgba(0,122,255,0.1) 0%, rgba(0,122,255,0.2) 100%); color: var(--apple-blue); border: 1px solid rgba(0,122,255,0.3); padding: 6px 12px; border-radius: 14px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+.group-chip:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,122,255,0.2); }
+.del-grp { font-size: 16px; opacity: 0.5; transition: 0.2s; }
+.del-grp:hover { opacity: 1; color: #ff3b30; transform: scale(1.2); }
+
+.save-group-btn { background: var(--apple-blue); color: #fff; border: none; border-radius: 10px; font-size: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,122,255,0.3); white-space: nowrap; }
+.save-group-btn:hover { background: #0056b3; transform: translateY(-2px); }
+
+/* =========================================
+   💡 ドラッグ＆ドロップ用のカーソル設定
+========================================= */
+.cat-popup-menu { cursor: grab; }
+.cat-popup-menu:active { cursor: grabbing; }
+
+.cat-chip, .add-cat-dropdown, .cw-chip, .add-cw-dropdown, .input-row-main, .input-row-hidden, .popup-section-header, .template-popup-header, .group-chip, .save-group-btn, .apple-input { cursor: default; }
+.cat-chip, .cw-chip, .group-chip, .save-group-btn, .del-cat-btn, .del-grp { cursor: pointer; }
+.apple-input { cursor: text; }
+
+/* =========================================
+   🚨 エラー通知トースト
+========================================= */
+.error-toast { 
+  position: fixed; 
+  top: 20px; 
+  left: 50%; 
+  transform: translateX(-50%); 
+  background: rgba(255, 59, 48, 0.95); 
+  backdrop-filter: blur(10px); 
+  color: white; 
+  padding: 12px 24px; 
+  border-radius: 12px; 
+  font-size: 14px;
+  font-weight: 800; 
+  box-shadow: 0 10px 30px rgba(255, 59, 48, 0.3); 
+  z-index: 9999; 
+  animation: dropDown 0.3s forwards; 
+  border: 1px solid rgba(255,255,255,0.3); 
+}
+@keyframes dropDown { 
+  from { top: -50px; opacity: 0; } 
+  to { top: 20px; opacity: 1; } 
+}
+
+/* =========================================
+   🏁 その他どうよ
+========================================= */
+.bottom-stats { position: fixed; bottom: 30px; width: 200px; text-align: center; z-index: 10; }
+.prog-label { font-size: 11px; font-weight: 800; color: var(--apple-blue); letter-spacing: 1px; }
+.prog-bar-bg { height: 6px; background: rgba(0,0,0,0.05); border-radius: 3px; margin-top: 5px; overflow: hidden; }
+.prog-bar-fill { height: 100%; background: var(--apple-blue); transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); }

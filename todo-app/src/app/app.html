@@ -1,0 +1,492 @@
+<div class="app-viewport">
+  
+  <div *ngIf="errorMessage" class="error-toast">{{ errorMessage }}</div>
+
+  <div class="timesheet-wrapper">
+    <div class="sidebar-trigger icon-trigger">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4" /><path d="M3 9h18M9 21V9" /></svg>
+    </div>
+    <div class="timesheet-panel">
+      <div class="ts-month-title">{{ tsCurrentMonthYear }}</div>
+      <div class="ts-scroll-container" (scroll)="onTsScroll($event)" (wheel)="onTsWheel($event)">
+        <table class="ts-table">
+          <thead>
+            <tr><th class="sticky-col">案件名</th><th *ngFor="let d of timesheet?.dates">{{ d | slice:5 }}</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let cat of categories">
+              <td class="sticky-col cat-name">{{ cat.name }}</td>
+              <td *ngFor="let d of timesheet?.dates" [class.has-time]="(getReportData()?.[cat.name]?.[d] || 0) > 0">
+                {{ formatHours(getReportData()?.[cat.name]?.[d] || 0) }}
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="total-row"><td class="sticky-col cat-name">総合計</td><td *ngFor="let d of timesheet?.dates">{{ formatHours(getDailyTotal(d)) }}</td></tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="export-controls-container">
+        <div class="export-date-range">
+          <input type="date" [value]="exportStartDate" (change)="onExportStartDateChange($event)" class="apple-input small-date-input"><span>〜</span><input type="date" [value]="exportEndDate" (change)="onExportEndDateChange($event)" class="apple-input small-date-input">
+        </div>
+        <button class="excel-export-btn" (click)="exportToCSVWithRange()">📥 Excel出力</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="insights-wrapper">
+    <div class="insights-trigger">📊 インサイト・記録</div>
+    <div class="insights-panel">
+      <div class="panel-section">
+        <div class="chart-title">今日のタスク達成度</div>
+        <div class="insight-details">
+          <span>完了タスク: <strong>{{ todayCompleted }} / {{ todayTotal }}</strong> 件</span>
+          <span>達成率: <strong>{{ dailyStats[today]?.progress || 0 }}%</strong></span>
+          <div class="progress-bar-bg"><div class="progress-bar-fill" [style.width.%]="dailyStats[today]?.progress || 0"></div></div>
+        </div>
+      </div>
+      <div class="panel-divider"></div>
+      <div class="panel-section">
+        <div class="chart-title">本日の作業時間</div>
+        <div class="total-time-display">{{ getTotalTimeFormatted() }}</div>
+        <div class="stacked-bar">
+          <div *ngFor="let cat of categories" class="bar-segment" [style.width.%]="getChartPercentage(cat.name)" [style.background]="cat.color" [title]="getCategoryTasksText(cat.name)"></div>
+        </div>
+        <div class="chart-legend">
+          <span *ngFor="let cat of categories"><i [style.background]="cat.color"></i>{{ cat.name }} {{ getChartPercentage(cat.name) | number:'1.0-0' }}%</span>
+        </div>
+      </div>
+      <div class="panel-divider"></div>
+      <div class="panel-section stats-grid">
+        <div class="stat-item"><span class="stat-value">{{ insights.totalCompleted }}</span><span class="stat-label">累計完了数</span></div>
+        <div class="stat-item"><span class="stat-value">{{ insights.favoriteCategory }}</span><span class="stat-label">主な作業</span></div>
+        <div class="stat-item"><span class="stat-value">{{ insights.globalCompletionRate }}%</span><span class="stat-label">達成率</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="header">
+    <p class="logo">TIMEFLOW</p>
+    <div class="center-control-layout">
+      <div class="user-select-container" style="position: relative;" (mouseenter)="openUserDropdown()" (mouseleave)="closeUserDropdown()">
+        <button class="date-picker-btn account-btn">👤 {{ viewMode === 'company' ? '会社全体' : currentUser }} ▾</button>
+        <div class="custom-calendar-popup user-menu" *ngIf="isUserDropdownOpen" (click)="$event.stopPropagation()">
+          <div class="cal-header" style="margin-bottom: 10px;"><span>アカウント切替・追加</span></div>
+          <div class="dropdown-item" *ngFor="let m of teamMembers" (click)="selectAccountTarget(m)" [class.active-user]="viewMode === 'personal' && m === currentUser">👤 {{ m }}</div>
+          <div class="panel-divider" style="margin: 5px 0;"></div>
+          <div class="dropdown-item" (click)="selectAccountTarget('company')" [class.active-user]="viewMode === 'company'">🏢 会社全体</div>
+          <div class="panel-divider" style="margin: 10px 0;"></div>
+          <div style="font-size: 11px; font-weight: bold; color: var(--apple-gray); margin-bottom: 5px;">(+) 新規追加</div>
+          <div class="input-group" style="margin-top: 0; gap: 5px;">
+            <input #newUser class="apple-input mini-input" placeholder="名前..." autocomplete="off" (keydown.enter)="addNewUser(newUser.value); newUser.value=''">
+            <button class="add-task-btn small-btn" (click)="addNewUser(newUser.value); newUser.value=''">追加</button>
+          </div>
+        </div>
+      </div>
+      <div class="date-control-stack">
+        <div class="calendar-container" style="position: relative;" (mouseenter)="openCalendar()" (mouseleave)="closeCalendar()">
+          <button class="date-picker-btn date-btn">📅 {{ getJapaneseDate(selectedDate) }} ▾</button>
+          <div class="custom-calendar-popup" *ngIf="isCalendarOpen" (click)="$event.stopPropagation()">
+            <div class="cal-header">
+              <button class="cal-nav-btn" (click)="changeMonth(-1, $event)">◀</button>
+              <span>{{ currentMonth.getFullYear() }}年 {{ currentMonth.getMonth() + 1 }}月</span>
+              <button class="cal-nav-btn" (click)="changeMonth(1, $event)">▶</button>
+            </div>
+            <table class="cal-grid">
+              <thead><tr><th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let week of calendarWeeks">
+                  <td *ngFor="let day of week" (click)="selectDateFromCalendar(day)" [class.other-month]="day.getMonth() !== currentMonth.getMonth()" [class.selected-day]="formatDate(day) === selectedDate">
+                    <div class="cal-day-num">{{ day.getDate() }}</div>
+                    <div class="cal-emoji">{{ dailyStats[formatDate(day)]?.emoji || '😴' }}</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="week-nav-buttons">
+          <button (click)="shiftWeek(-1)">＜ 先週</button>
+          <button (click)="shiftWeek(1)">来週 ＞</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-viewport" id="board-viewport" (scroll)="onScroll($event)">
+    <div class="matrix-header-row">
+      <div class="matrix-corner"></div> 
+      <div class="matrix-date-cell" *ngFor="let date of dateRange; trackBy: trackByDate" [id]="'date-col-' + date">
+        <div class="date-header-content">
+          <p class="weekday">{{ getJapaneseDay(date) }}</p>
+          <h2 [style.color]="date === selectedDate ? 'var(--apple-blue)' : 'inherit'">{{ getJapaneseDate(date) }}</h2>
+          <select class="filter-select" (change)="onFilterChange(date, $event)">
+            <option value="">すべての案件</option>
+            <option *ngFor="let cat of categories" [value]="cat.name">{{ cat.name }}優先</option>
+          </select>
+        </div>
+      </div>
+      <div class="side-spacer"></div>
+    </div>
+
+    <ng-container *ngIf="viewMode === 'personal'">
+      <div class="matrix-user-row">
+        <div class="matrix-user-cell"></div>
+        <div class="matrix-data-cell" *ngFor="let date of dateRange; trackBy: trackByDate">
+          
+          <div class="day-card" [class.card-hovered]="isCardHovered(date, currentUser)" [class.highlight-card]="date === selectedDate" (mouseenter)="setHoveredCard(date, currentUser)" (mouseleave)="clearHoveredCard()">
+            
+            <div class="card-top-row">
+              <p class="remaining-count" *ngIf="getRemainingCountByUser(date, currentUser) > 0">あと {{ getRemainingCountByUser(date, currentUser) }} 件</p>
+            </div>
+
+            <div class="todo-list">
+              <div *ngIf="!personalData[date] || personalData[date].length === 0" class="no-tasks">タスクなし</div>
+              
+              <ng-container *ngFor="let item of personalData[date]; trackBy: trackByTodo">
+                <div *ngIf="editingTaskId !== item.id" class="todo-item" [class.highlight]="filterCategories[date] === item.category">
+                  <input type="checkbox" [checked]="item.isCompleted" (change)="toggleTodo(item.id!, date)" class="cb-apple">
+                  <div class="task-main-info">
+                    <div class="info-row">
+                      <span class="todo-title" [class.done]="item.isCompleted">{{ item.title }}</span>
+                      <div class="time-range-display">
+                        <span class="t-val">{{ item.startTime || '--:--' }}</span> ~ <span class="t-val">{{ item.endTime || '--:--' }}</span>
+                      </div>
+                    </div>
+                    <div class="info-row">
+                      <div class="cat-room-info">
+                        <span class="todo-cat">{{ item.category }}</span>
+                        <span class="todo-room" *ngIf="item.room && item.room !== '未設定'">🚪 {{ item.room }}</span>
+                      </div>
+                      <div class="time-inline act-inline">
+                        <span class="t-label">実:</span><span class="t-val">{{ item.actualTime }}分</span>
+                        <button class="t-btn" (click)="adjustActualTime(item, date, 15, $event)">＋</button>
+                        <button class="t-btn" (click)="adjustActualTime(item, date, -15, $event)">－</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="action-buttons">
+                    <div class="edit-btn" (click)="startEditing(item, date)" title="編集">✏️</div>
+                    <div class="move-btn" *ngIf="!item.isCompleted" (click)="copyToTomorrow(item.id!, date)" title="翌日へ一括コピー">➔</div>
+                    <div class="del-btn" (click)="deleteTodo(item.id!, date)" title="削除">✕</div>
+                  </div>
+                </div>
+
+                <div *ngIf="editingTaskId === item.id && editingTaskData" class="todo-item editing-mode">
+                  <div class="edit-form-container">
+                    <input [(ngModel)]="editingTaskData.title" class="apple-input edit-title-input" placeholder="タスク名">
+                    <div class="edit-row-flex">
+                      <select [(ngModel)]="editingTaskData.category" class="filter-select edit-flex-item">
+                        <option *ngFor="let c of categories" [value]="c.name">{{ c.name }}</option>
+                      </select>
+                      <select [(ngModel)]="editingTaskData.room" class="filter-select edit-flex-item">
+                        <option value="未設定">🚪 部屋未設定</option>
+                        <option *ngFor="let r of rooms" [value]="r">{{ r }}</option>
+                      </select>
+                    </div>
+                    <div class="edit-time-box">
+                      <span>予定: </span>
+                      <input type="time" [(ngModel)]="editingTaskData.startTime" class="apple-input time-pick">
+                      <span> 〜 </span>
+                      <input type="time" [(ngModel)]="editingTaskData.endTime" class="apple-input time-pick">
+                    </div>
+                    <div class="edit-members-box">
+                      <div class="cw-header">【メンバー変更】</div>
+                      <div class="edit-member-chips">
+                        <div *ngFor="let m of teamMembers" class="cw-chip" [class.active]="editingTaskData.members.includes(m)" (click)="toggleEditMember(m)">{{ m }}</div>
+                      </div>
+                    </div>
+                    <div class="edit-actions">
+                      <button class="edit-cancel-btn" (click)="cancelEditing()">キャンセル</button>
+                      <button class="edit-save-btn" (click)="saveEditing(date)">保存</button>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
+            </div>
+
+            <div class="input-area-wrapper" (focusout)="onInputFocusOut($event, newT, startInput, endInput, date, currentUser)">
+              
+              <div class="cat-popup-menu" cdkDrag cdkDragBoundary=".board-viewport" title="どこを掴んでも移動できます"
+                   (mouseenter)="isPopupHovered = true" (mouseleave)="isPopupHovered = false">
+                <div class="popup-section">
+                  <div class="popup-section-header">【📋 案件を選択して追加】</div>
+                  <div class="cat-chip-container">
+                    <div class="cat-chip" *ngFor="let cat of categories; trackBy: trackByCat" 
+                         (click)="setEditingCategory(date, currentUser, cat.name)" 
+                         [class.active]="getEditingCategory(date, currentUser) === cat.name" 
+                         [style.background]="getEditingCategory(date, currentUser) === cat.name ? cat.color : 'rgba(0,0,0,0.05)'">
+                      <span>{{ cat.name }}</span><div class="del-cat-btn" (click)="deleteCategory(cat.name, $event)" title="案件を削除">✕</div>
+                    </div>
+                    <div class="cat-chip add-cat-chip">(+)<div class="add-cat-dropdown" (click)="$event.stopPropagation()"><input #newCat class="apple-input add-cat-input" placeholder="新規案件..." autocomplete="off" (keydown.enter)="addCustomCategory(newCat.value, date, currentUser); newCat.value=''" (keydown)="$event.stopPropagation()"></div></div>
+                  </div>
+                </div>
+
+                <div class="popup-section mt-10">
+                  <div class="popup-section-header">【🚪 部屋を選択】</div>
+                  <div class="cat-chip-container">
+                    <div class="cat-chip" 
+                         (click)="setEditingRoom(date, currentUser, '未設定')" 
+                         [class.active]="getEditingRoom(date, currentUser) === '未設定'" 
+                         [style.background]="getEditingRoom(date, currentUser) === '未設定' ? '#007aff' : 'rgba(0,0,0,0.05)'">未設定</div>
+                    <div class="cat-chip" *ngFor="let r of rooms" 
+                         (click)="setEditingRoom(date, currentUser, r)" 
+                         [class.active]="getEditingRoom(date, currentUser) === r" 
+                         [style.background]="getEditingRoom(date, currentUser) === r ? '#007aff' : 'rgba(0,0,0,0.05)'">
+                      <span>{{ r }}</span><div class="del-cat-btn" (click)="deleteRoom(r, $event)" title="部屋を削除">✕</div>
+                    </div>
+                    <div class="cat-chip add-cat-chip">(+)<div class="add-cat-dropdown" (click)="$event.stopPropagation()"><input #newRm class="apple-input add-cat-input" placeholder="新規部屋..." autocomplete="off" (keydown.enter)="addCustomRoom(newRm.value, date, currentUser); newRm.value=''" (keydown)="$event.stopPropagation()"></div></div>
+                  </div>
+                </div>
+
+                <div class="popup-section mt-10">
+                  <div class="coworker-selector-box">
+                    <div class="cw-header">【👥 共同作業者：】</div>
+                    <div class="cw-chip fixed-chip">{{ currentUser }}</div>
+                    <span class="cw-cross">×</span>
+                    <ng-container *ngFor="let m of teamMembers"><div *ngIf="m !== currentUser" class="cw-chip" [class.active]="isCoWorker(date, currentUser, m)" (click)="toggleCoWorker(date, currentUser, m)">{{ m }}</div></ng-container>
+                    <div class="cw-chip add-cw-chip">(+)<div class="add-cw-dropdown" (click)="$event.stopPropagation()"><input #newCw class="apple-input add-cw-input" placeholder="メンバー追加..." autocomplete="off" (keydown.enter)="addNewMemberOnly(newCw.value); newCw.value=''" (keydown)="$event.stopPropagation()"></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bottom-input-container">
+                <div class="input-row-main">
+                  <input #newT class="task-input-field" placeholder="タスクを入力..." autocomplete="off"
+                         (keydown.enter)="startInput.focus()">
+                  
+                  <div class="template-tool-wrapper" [class.menu-open]="activeTemplateKey === 'menu-' + date + '-' + currentUser">
+                    <button class="template-icon-btn" title="タスクテンプレート" (click)="toggleTemplateMenu('menu-' + date + '-' + currentUser, $event)">📋</button>
+                    
+                    <div class="template-popup-menu" *ngIf="activeTemplateKey === 'menu-' + date + '-' + currentUser" 
+                         (click)="$event.stopPropagation()"
+                         (mouseenter)="isTemplateHovered = true" (mouseleave)="isTemplateHovered = false">
+                      
+                      <div class="template-popup-header">📋 テンプレを呼び出し</div>
+                      <div class="saved-groups-box">
+                        <div *ngIf="savedTemplates.length === 0" class="empty-text">保存されたテンプレはありません</div>
+                        <div class="group-chip" *ngFor="let t of savedTemplates" (click)="loadTemplate(t, date, currentUser, newT, startInput, endInput, $event)">
+                          {{ t.templateName }} <span class="del-grp" (click)="deleteTemplate(t.templateName, $event)">×</span>
+                        </div>
+                      </div>
+
+                      <div class="input-divider" style="margin: 8px 0;"></div>
+                      <div class="template-popup-header">(+) 現在の内容を保存</div>
+                      
+                      <div class="input-group" style="display: flex; gap: 5px; margin-top: 5px;">
+                        <input #grpName class="apple-input add-cw-input" placeholder="テンプレ名..." [value]="newT.value" autocomplete="off" (keydown.enter)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value)">
+                        <button class="save-group-btn" style="margin-top: 0; padding: 8px 12px;" (click)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value)">保存</button>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+                <div class="input-row-hidden">
+                  <div class="input-divider"></div>
+                  <div class="input-row-time">
+                    <div class="time-picker-wrap">
+                      <span class="time-icon">⏱</span>
+                      <input #startInput type="time" class="time-pick-mini" (change)="endInput.focus()" (keydown.enter)="endInput.focus()">
+                    </div>
+                    <span class="time-separator">～</span>
+                    <div class="time-picker-wrap">
+                      <span class="time-icon">⏱</span>
+                      <input #endInput type="time" class="time-pick-mini" (keydown.enter)="addTodo(newT.value, date, startInput.value, endInput.value, currentUser, newT, startInput, endInput)">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+        <div class="side-spacer"></div>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="viewMode === 'company'">
+      <div class="matrix-user-row" *ngFor="let user of teamMembers; trackBy: trackByMemberRow" [id]="'user-row-' + user">
+        <div class="matrix-user-cell"><div class="user-name-card"><div class="avatar">{{ user.charAt(0) }}</div><span class="u-name">{{ user }}</span></div></div>
+        <div class="matrix-data-cell" *ngFor="let date of dateRange; trackBy: trackByDate">
+          
+          <div class="day-card" [class.card-hovered]="isCardHovered(date, user)" [class.highlight-card]="user === currentUser && date === selectedDate" (mouseenter)="setHoveredCard(date, user)" (mouseleave)="clearHoveredCard()">
+            
+            <div class="card-top-row">
+              <p class="remaining-count" *ngIf="getRemainingCountByUser(date, user) > 0">あと {{ getRemainingCountByUser(date, user) }} 件</p>
+            </div>
+
+            <div class="todo-list">
+              <div *ngIf="!matrixData[user]?.[date] || matrixData[user][date].length === 0" class="no-tasks">タスクなし</div>
+              
+              <ng-container *ngFor="let item of matrixData[user]?.[date]; trackBy: trackByTodo">
+                <div *ngIf="editingTaskId !== item.id" class="todo-item" [class.highlight]="filterCategories[date] === item.category">
+                  <input type="checkbox" [checked]="item.isCompleted" (change)="toggleTodo(item.id!, date)" class="cb-apple">
+                  <div class="task-main-info">
+                    <div class="info-row">
+                      <span class="todo-title" [class.done]="item.isCompleted">{{ item.title }}</span>
+                      <div class="time-range-display">
+                        <span class="t-val">{{ item.startTime || '--:--' }}</span> ~ <span class="t-val">{{ item.endTime || '--:--' }}</span>
+                      </div>
+                    </div>
+                    <div class="info-row">
+                      <div class="cat-room-info">
+                        <span class="todo-cat">{{ item.category }}</span>
+                        <span class="todo-room" *ngIf="item.room && item.room !== '未設定'">🚪 {{ item.room }}</span>
+                      </div>
+                      <div class="time-inline act-inline">
+                        <span class="t-label">実:</span><span class="t-val">{{ item.actualTime }}分</span>
+                        <button class="t-btn" (click)="adjustActualTime(item, date, 15, $event)">＋</button>
+                        <button class="t-btn" (click)="adjustActualTime(item, date, -15, $event)">－</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="action-buttons">
+                    <div class="edit-btn" (click)="startEditing(item, date)" title="編集">✏️</div>
+                    <div class="move-btn" *ngIf="!item.isCompleted" (click)="copyToTomorrow(item.id!, date)" title="翌日へ一括コピー">➔</div>
+                    <div class="del-btn" (click)="deleteTodo(item.id!, date)" title="削除">✕</div>
+                  </div>
+                </div>
+
+                <div *ngIf="editingTaskId === item.id && editingTaskData" class="todo-item editing-mode">
+                  <div class="edit-form-container">
+                    <input [(ngModel)]="editingTaskData.title" class="apple-input edit-title-input" placeholder="タスク名">
+                    <div class="edit-row-flex">
+                      <select [(ngModel)]="editingTaskData.category" class="filter-select edit-flex-item">
+                        <option *ngFor="let c of categories" [value]="c.name">{{ c.name }}</option>
+                      </select>
+                      <select [(ngModel)]="editingTaskData.room" class="filter-select edit-flex-item">
+                        <option value="未設定">🚪 部屋未設定</option>
+                        <option *ngFor="let r of rooms" [value]="r">{{ r }}</option>
+                      </select>
+                    </div>
+                    <div class="edit-time-box">
+                      <span>予定: </span>
+                      <input type="time" [(ngModel)]="editingTaskData.startTime" class="apple-input time-pick">
+                      <span> 〜 </span>
+                      <input type="time" [(ngModel)]="editingTaskData.endTime" class="apple-input time-pick">
+                    </div>
+                    <div class="edit-members-box">
+                      <div class="cw-header">【メンバー変更】</div>
+                      <div class="edit-member-chips">
+                        <div *ngFor="let m of teamMembers" class="cw-chip" [class.active]="editingTaskData.members.includes(m)" (click)="toggleEditMember(m)">{{ m }}</div>
+                      </div>
+                    </div>
+                    <div class="edit-actions">
+                      <button class="edit-cancel-btn" (click)="cancelEditing()">キャンセル</button>
+                      <button class="edit-save-btn" (click)="saveEditing(date)">保存</button>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
+            </div>
+
+            <div class="input-area-wrapper" (focusout)="onInputFocusOut($event, newT, startInput, endInput, date, user)">
+              
+              <div class="cat-popup-menu" cdkDrag cdkDragBoundary=".board-viewport" title="どこを掴んでも移動できます"
+                   (mouseenter)="isPopupHovered = true" (mouseleave)="isPopupHovered = false">
+                <div class="popup-section">
+                  <div class="popup-section-header">【📋 案件を選択して追加】</div>
+                  <div class="cat-chip-container">
+                    <div class="cat-chip" *ngFor="let cat of categories; trackBy: trackByCat" 
+                         (click)="setEditingCategory(date, user, cat.name)" 
+                         [class.active]="getEditingCategory(date, user) === cat.name" 
+                         [style.background]="getEditingCategory(date, user) === cat.name ? cat.color : 'rgba(0,0,0,0.05)'">
+                      <span>{{ cat.name }}</span><div class="del-cat-btn" (click)="deleteCategory(cat.name, $event)" title="案件を削除">✕</div>
+                    </div>
+                    <div class="cat-chip add-cat-chip">(+)<div class="add-cat-dropdown" (click)="$event.stopPropagation()"><input #newCat class="apple-input add-cat-input" placeholder="新規案件..." autocomplete="off" (keydown.enter)="addCustomCategory(newCat.value, date, user); newCat.value=''" (keydown)="$event.stopPropagation()"></div></div>
+                  </div>
+                </div>
+
+                <div class="popup-section mt-10">
+                  <div class="popup-section-header">【🚪 部屋を選択】</div>
+                  <div class="cat-chip-container">
+                    <div class="cat-chip" 
+                         (click)="setEditingRoom(date, user, '未設定')" 
+                         [class.active]="getEditingRoom(date, user) === '未設定'" 
+                         [style.background]="getEditingRoom(date, user) === '未設定' ? '#007aff' : 'rgba(0,0,0,0.05)'">未設定</div>
+                    <div class="cat-chip" *ngFor="let r of rooms" 
+                         (click)="setEditingRoom(date, user, r)" 
+                         [class.active]="getEditingRoom(date, user) === r" 
+                         [style.background]="getEditingRoom(date, user) === r ? '#007aff' : 'rgba(0,0,0,0.05)'">
+                      <span>{{ r }}</span><div class="del-cat-btn" (click)="deleteRoom(r, $event)" title="部屋を削除">✕</div>
+                    </div>
+                    <div class="cat-chip add-cat-chip">(+)<div class="add-cat-dropdown" (click)="$event.stopPropagation()"><input #newRm class="apple-input add-cat-input" placeholder="新規部屋..." autocomplete="off" (keydown.enter)="addCustomRoom(newRm.value, date, user); newRm.value=''" (keydown)="$event.stopPropagation()"></div></div>
+                  </div>
+                </div>
+
+                <div class="popup-section mt-10">
+                  <div class="coworker-selector-box">
+                    <div class="cw-header">【👥 共同作業者：】</div>
+                    <div class="cw-chip fixed-chip">{{ user }}</div><span class="cw-cross">×</span>
+                    <ng-container *ngFor="let m of teamMembers"><div *ngIf="m !== user" class="cw-chip" [class.active]="isCoWorker(date, user, m)" (click)="toggleCoWorker(date, user, m)">{{ m }}</div></ng-container>
+                    <div class="cw-chip add-cw-chip">(+)<div class="add-cw-dropdown" (click)="$event.stopPropagation()"><input #newCw class="apple-input add-cw-input" placeholder="メンバー追加..." autocomplete="off" (keydown.enter)="addNewMemberOnly(newCw.value); newCw.value=''" (keydown)="$event.stopPropagation()"></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bottom-input-container">
+                <div class="input-row-main">
+                  <input #newT class="task-input-field" placeholder="タスクを入力..." autocomplete="off"
+                         (keydown.enter)="startInput.focus()">
+                  
+                  <div class="template-tool-wrapper" [class.menu-open]="activeTemplateKey === 'menu-' + date + '-' + user">
+                    <button class="template-icon-btn" title="タスクテンプレート" (click)="toggleTemplateMenu('menu-' + date + '-' + user, $event)">📋</button>
+                    
+                    <div class="template-popup-menu" *ngIf="activeTemplateKey === 'menu-' + date + '-' + user" 
+                         (click)="$event.stopPropagation()"
+                         (mouseenter)="isTemplateHovered = true" (mouseleave)="isTemplateHovered = false">
+                      
+                      <div class="template-popup-header">📋 テンプレを呼び出し</div>
+                      <div class="saved-groups-box">
+                        <div *ngIf="savedTemplates.length === 0" class="empty-text">保存されたテンプレはありません</div>
+                        <div class="group-chip" *ngFor="let t of savedTemplates" (click)="loadTemplate(t, date, user, newT, startInput, endInput, $event)">
+                          {{ t.templateName }} <span class="del-grp" (click)="deleteTemplate(t.templateName, $event)">×</span>
+                        </div>
+                      </div>
+
+                      <div class="input-divider" style="margin: 8px 0;"></div>
+                      <div class="template-popup-header">(+) 現在の内容を保存</div>
+                      
+                      <div class="input-group" style="display: flex; gap: 5px; margin-top: 5px;">
+                        <input #grpName class="apple-input add-cw-input" placeholder="テンプレ名..." [value]="newT.value" autocomplete="off" (keydown.enter)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value)">
+                        <button class="save-group-btn" style="margin-top: 0; padding: 8px 12px;" (click)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value)">保存</button>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+                <div class="input-row-hidden">
+                  <div class="input-divider"></div>
+                  <div class="input-row-time">
+                    <div class="time-picker-wrap">
+                      <span class="time-icon">⏱</span>
+                      <input #startInput type="time" class="time-pick-mini" (change)="endInput.focus()" (keydown.enter)="endInput.focus()">
+                    </div>
+                    <span class="time-separator">～</span>
+                    <div class="time-picker-wrap">
+                      <span class="time-icon">⏱</span>
+                      <input #endInput type="time" class="time-pick-mini" (keydown.enter)="addTodo(newT.value, date, startInput.value, endInput.value, user, newT, startInput, endInput)">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+        <div class="side-spacer"></div>
+      </div>
+    </ng-container>
+
+  </div> 
+  <div class="bottom-stats">
+    <div class="prog-label">選択日の達成率 {{ stats?.progress || 0 }}%</div>
+    <div class="prog-bar-bg"><div class="prog-bar-fill" [style.width.%]="stats?.progress || 0"></div></div>
+  </div>
+
+</div>
