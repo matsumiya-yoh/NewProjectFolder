@@ -30,6 +30,7 @@ public record TaskUpdateRequest(
     [property: JsonPropertyName("members")] List<string> Members 
 );
 
+// 💡 一括登録用のリクエストモデル
 public record BulkTodoRequest(
     [property: JsonPropertyName("dates")] List<string> Dates,
     [property: JsonPropertyName("task")] TodoTask Task
@@ -48,6 +49,8 @@ public class TaskTemplate {
     [JsonPropertyName("startTime")] public string StartTime { get; set; } = "";
     [JsonPropertyName("endTime")] public string EndTime { get; set; } = "";
     [JsonPropertyName("members")] public List<string> Members { get; set; } = new();
+    
+    // 💡 共有テンプレフラグ
     [JsonPropertyName("isShared")] public bool IsShared { get; set; } = false; 
 }
 

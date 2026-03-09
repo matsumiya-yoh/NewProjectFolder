@@ -20,11 +20,13 @@ app.MapGet("/api/todos/range", (string start, string end, string? userName, stri
 app.MapPost("/api/todos/matrix", (MatrixRequest req, TodoService service) => 
     Results.Ok(service.GetCompanyMatrix(req.StartDate, req.EndDate, req.TeamMembers, req.PriorityCategory)));
 
+// 💡 一括登録API
 app.MapPost("/api/todos/bulk", (BulkTodoRequest req, TodoService service) => {
     service.AddBulk(req.Dates, req.Task);
     return Results.Ok();
 });
 
+// CSVエクスポート
 app.MapGet("/api/export/timesheet", (string start, string end, string viewMode, string? userName, TodoService service) => {
     var csvString = service.GenerateTimesheetCsv(start, end, viewMode, userName);
     var bytes = System.Text.Encoding.UTF8.GetBytes(csvString);
@@ -93,6 +95,12 @@ app.MapGet("/api/templates/{userName}", (string userName, TodoService service) =
 
 app.MapPost("/api/templates/{userName}", (string userName, TaskTemplate tmpl, TodoService service) => {
     service.AddTemplate(userName, tmpl);
+    return Results.Ok();
+});
+
+// 💡 テンプレートの編集（上書き更新）API
+app.MapPut("/api/templates/{userName}/{oldName}", (string userName, string oldName, TaskTemplate tmpl, TodoService service) => {
+    service.UpdateTemplate(userName, oldName, tmpl);
     return Results.Ok();
 });
 

@@ -48,14 +48,22 @@ public class TodoService {
 
     public void AddTemplate(string userName, TaskTemplate tmpl) {
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(tmpl.TemplateName)) return;
-        
         string targetKey = tmpl.IsShared ? "__SHARED__" : userName;
-
         if (!_templates.ContainsKey(targetKey)) _templates[targetKey] = new();
         var existing = _templates[targetKey].FirstOrDefault(t => t.TemplateName == tmpl.TemplateName);
         if (existing != null) _templates[targetKey].Remove(existing);
-        
         _templates[targetKey].Add(tmpl);
+        SaveTemplates();
+    }
+
+    // 💡 テンプレの編集（名前変更対応のため古い名前のものを削除して追加）
+    public void UpdateTemplate(string userName, string oldName, TaskTemplate newTmpl) {
+        foreach (var key in _templates.Keys.ToList()) {
+            _templates[key].RemoveAll(t => t.TemplateName == oldName);
+        }
+        string targetKey = newTmpl.IsShared ? "__SHARED__" : userName;
+        if (!_templates.ContainsKey(targetKey)) _templates[targetKey] = new();
+        _templates[targetKey].Add(newTmpl);
         SaveTemplates();
     }
 
@@ -83,10 +91,9 @@ public class TodoService {
     }
 
     private IEnumerable<TodoItem> SortTasks(IEnumerable<TodoItem> tasks, string? priorityCategory) {
-        return tasks
-            .OrderBy(t => t.IsCompleted) 
-            .ThenByDescending(t => !string.IsNullOrEmpty(priorityCategory) && t.Category == priorityCategory) 
-            .ThenBy(t => string.IsNullOrEmpty(t.StartTime) ? "23:59" : t.StartTime); 
+        return tasks.OrderBy(t => t.IsCompleted) 
+                    .ThenByDescending(t => !string.IsNullOrEmpty(priorityCategory) && t.Category == priorityCategory) 
+                    .ThenBy(t => string.IsNullOrEmpty(t.StartTime) ? "23:59" : t.StartTime); 
     }
 
     public Dictionary<string, List<TodoItem>> GetTodosByRange(string startDate, string endDate, string? userName, string? priorityCategory) {
@@ -94,10 +101,8 @@ public class TodoService {
         if (DateTime.TryParse(startDate, out var start) && DateTime.TryParse(endDate, out var end)) {
             for (var d = start; d <= end; d = d.AddDays(1)) {
                 string dateStr = d.ToString("yyyy-MM-dd");
-                var tasks = _data.TryGetValue(dateStr, out var dailyTasks) ? dailyTasks : new List<TodoItem>();
-                if (!string.IsNullOrEmpty(userName)) {
-                    tasks = tasks.Where(t => t.UserName == userName).ToList();
-                }
+                var tasks = _data.TryGetValue(dateStr, out var dailyTasks) ? dailyTasks.ToList() : new List<TodoItem>();
+                if (!string.IsNullOrEmpty(userName)) tasks = tasks.Where(t => t.UserName == userName).ToList();
                 result[dateStr] = SortTasks(tasks, priorityCategory).ToList();
             }
         }
@@ -111,7 +116,7 @@ public class TodoService {
         if (DateTime.TryParse(startDate, out var start) && DateTime.TryParse(endDate, out var end)) {
             for (var d = start; d <= end; d = d.AddDays(1)) {
                 string dateStr = d.ToString("yyyy-MM-dd");
-                var tasks = _data.TryGetValue(dateStr, out var dailyTasks) ? dailyTasks : new List<TodoItem>();
+                var tasks = _data.TryGetValue(dateStr, out var dailyTasks) ? dailyTasks.ToList() : new List<TodoItem>();
                 
                 foreach (var member in teamMembers) {
                     result[member][dateStr] = SortTasks(tasks.Where(t => t.UserName == member), priorityCategory).ToList();
@@ -199,6 +204,7 @@ public class TodoService {
         return result.ToList();
     }
 
+    // 💡 複数日付への一括登録（フロントから送られた日付配列に対して登録）
     public void AddBulk(List<string> dates, TodoTask task) {
         if (string.IsNullOrWhiteSpace(task.Title) || dates == null || !dates.Any()) return;
 
@@ -212,6 +218,7 @@ public class TodoService {
 
         foreach (var date in dates) {
             if (!_data.ContainsKey(date)) _data[date] = new();
+            // 同じ日の重複を防ぐ
             if (_data[date].Any(t => t.Title == task.Title && t.StartTime == task.StartTime && t.EndTime == task.EndTime && t.UserName == user && !t.IsCompleted)) continue;
 
             DateTime? deadline = null;
