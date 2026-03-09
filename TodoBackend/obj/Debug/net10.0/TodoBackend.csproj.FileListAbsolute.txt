@@ -34,3 +34,5 @@ C:\Users\matsumiya\NewProjectFolder\TodoBackend\obj\Debug\net10.0\ref\TodoBacken
 C:\Users\matsumiya\NewProjectFolder\TodoBackend\bin\Debug\net10.0\todos.json
 C:\Users\matsumiya\NewProjectFolder\TodoBackend\bin\Debug\net10.0\categories.json
 C:\Users\matsumiya\NewProjectFolder\TodoBackend\bin\Debug\net10.0\rooms.json
+C:\Users\matsumiya\NewProjectFolder\TodoBackend\bin\Debug\net10.0\groups.json
+C:\Users\matsumiya\NewProjectFolder\TodoBackend\bin\Debug\net10.0\templates.json

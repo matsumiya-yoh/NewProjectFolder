@@ -6,65 +6,53 @@ namespace TodoBackend.Services;
 public class TodoService {
     private const string FilePath = "todos.json";
     private const string CatFilePath = "categories.json";
-    private const string GroupFilePath = "groups.json"; 
-    private const string RoomFilePath = "rooms.json"; // 💡 新規：部屋リスト保存用
+    private const string RoomFilePath = "rooms.json"; 
+    private const string TemplateFilePath = "templates.json"; 
     
     private readonly Dictionary<string, List<TodoItem>> _data;
+    private readonly Dictionary<string, List<TaskTemplate>> _templates; 
     private List<CategoryInfo> _categories;
-    private readonly Dictionary<string, List<UserGroup>> _userGroups;
-    private List<string> _rooms; // 💡 新規：部屋のリスト
+    private List<string> _rooms; 
 
     private static readonly JsonSerializerOptions _options = new() { WriteIndented = true };
 
     public TodoService() {
         _data = Load();
         _categories = LoadCategories();
-        _userGroups = LoadGroups();
-        _rooms = LoadRooms(); // 💡 部屋の読み込み
+        _rooms = LoadRooms(); 
+        _templates = LoadTemplates(); 
     }
 
-    // ==========================================
-    // 💡 要件：部屋（Room）の管理
-    // ==========================================
     public List<string> GetRooms() => _rooms;
     public void AddRoom(string roomName) {
         if (!string.IsNullOrWhiteSpace(roomName) && !_rooms.Contains(roomName)) {
-            _rooms.Add(roomName);
-            SaveRooms();
+            _rooms.Add(roomName); SaveRooms();
         }
     }
     public void DeleteRoom(string roomName) {
         if (!string.IsNullOrWhiteSpace(roomName)) {
-            _rooms.Remove(roomName);
-            SaveRooms();
+            _rooms.Remove(roomName); SaveRooms();
         }
     }
 
-    // ==========================================
-    // グループ管理
-    // ==========================================
-    public List<UserGroup> GetUserGroups(string userName) {
+    public List<TaskTemplate> GetTemplates(string userName) {
         if (string.IsNullOrWhiteSpace(userName)) return new();
-        return _userGroups.GetValueOrDefault(userName) ?? new();
+        return _templates.GetValueOrDefault(userName) ?? new();
     }
-    public void AddUserGroup(string userName, UserGroup group) {
-        if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(group.GroupName)) return;
-        if (!_userGroups.ContainsKey(userName)) _userGroups[userName] = new();
-        var existing = _userGroups[userName].FirstOrDefault(g => g.GroupName == group.GroupName);
-        if (existing != null) existing.Members = group.Members;
-        else _userGroups[userName].Add(group);
-        SaveGroups();
+    public void AddTemplate(string userName, TaskTemplate tmpl) {
+        if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(tmpl.TemplateName)) return;
+        if (!_templates.ContainsKey(userName)) _templates[userName] = new();
+        var existing = _templates[userName].FirstOrDefault(t => t.TemplateName == tmpl.TemplateName);
+        if (existing != null) _templates[userName].Remove(existing);
+        _templates[userName].Add(tmpl);
+        SaveTemplates();
     }
-    public void DeleteUserGroup(string userName, string groupName) {
-        if (_userGroups.ContainsKey(userName)) {
-            _userGroups[userName].RemoveAll(g => g.GroupName == groupName);
-            SaveGroups();
+    public void DeleteTemplate(string userName, string templateName) {
+        if (_templates.ContainsKey(userName)) {
+            _templates[userName].RemoveAll(t => t.TemplateName == templateName); SaveTemplates();
         }
     }
 
-    // ==========================================
-    // カテゴリー管理
-    // ==========================================
     public List<CategoryInfo> GetCategories() => _categories;
     public void AddCategory(string categoryName) {
         if (!string.IsNullOrWhiteSpace(categoryName) && !_categories.Any(c => c.Name == categoryName)) {
@@ -76,14 +64,57 @@ public class TodoService {
     }
     public void DeleteCategory(string categoryName) {
         if (!string.IsNullOrWhiteSpace(categoryName)) {
-            _categories.RemoveAll(c => c.Name == categoryName);
-            SaveCategories();
+            _categories.RemoveAll(c => c.Name == categoryName); SaveCategories();
         }
     }
 
-    // ==========================================
-    // タイムシート・データ取得
-    // ==========================================
+    // 💡 追加：フロントエンドで行っていたソートをC#で実行
+    private IEnumerable<TodoItem> SortTasks(IEnumerable<TodoItem> tasks, string? priorityCategory) {
+        return tasks
+            .OrderBy(t => t.IsCompleted) // 未完了が上
+            .ThenByDescending(t => !string.IsNullOrEmpty(priorityCategory) && t.Category == priorityCategory) // 優先カテゴリが上
+            .ThenBy(t => string.IsNullOrEmpty(t.StartTime) ? "23:59" : t.StartTime); // 開始時間順
+    }
+
+    public Dictionary<string, List<TodoItem>> GetTodosByRange(string startDate, string endDate, string? userName, string? priorityCategory) {
+        var result = new Dictionary<string, List<TodoItem>>();
+        if (DateTime.TryParse(startDate, out var start) && DateTime.TryParse(endDate, out var end)) {
+            for (var d = start; d <= end; d = d.AddDays(1)) {
+                string dateStr = d.ToString("yyyy-MM-dd");
+                var tasks = _data.TryGetValue(dateStr, out var dailyTasks) ? dailyTasks : new List<TodoItem>();
+                if (!string.IsNullOrEmpty(userName)) {
+                    tasks = tasks.Where(t => t.UserName == userName).ToList();
+                }
+                result[dateStr] = SortTasks(tasks, priorityCategory).ToList();
+            }
+        }
+        return result;
+    }
+
+    // 💡 追加：フロントエンドで行っていたマトリックスの構築をC#で実行
+    public Dictionary<string, Dictionary<string, List<TodoItem>>> GetCompanyMatrix(string startDate, string endDate, List<string> teamMembers, string? priorityCategory) {
+        var result = new Dictionary<string, Dictionary<string, List<TodoItem>>>();
+        foreach (var member in teamMembers) { result[member] = new Dictionary<string, List<TodoItem>>(); }
+
+        if (DateTime.TryParse(startDate, out var start) && DateTime.TryParse(endDate, out var end)) {
+            for (var d = start; d <= end; d = d.AddDays(1)) {
+                string dateStr = d.ToString("yyyy-MM-dd");
+                var tasks = _data.TryGetValue(dateStr, out var dailyTasks) ? dailyTasks : new List<TodoItem>();
+                
+                foreach (var member in teamMembers) {
+                    result[member][dateStr] = SortTasks(tasks.Where(t => t.UserName == member), priorityCategory).ToList();
+                }
+                
+                var otherUsers = tasks.Select(t => t.UserName).Where(u => !string.IsNullOrEmpty(u) && !teamMembers.Contains(u)).Distinct();
+                foreach(var otherUser in otherUsers) {
+                    if (!result.ContainsKey(otherUser!)) result[otherUser!] = new Dictionary<string, List<TodoItem>>();
+                    result[otherUser!][dateStr] = SortTasks(tasks.Where(t => t.UserName == otherUser), priorityCategory).ToList();
+                }
+            }
+        }
+        return result;
+    }
+
     public object GetTimesheet(List<string> dates) {
         var report = new Dictionary<string, Dictionary<string, int>>();
         var companyReport = new Dictionary<string, Dictionary<string, int>>();
@@ -105,6 +136,48 @@ public class TodoService {
         return new { dates, report, companyReport };
     }
 
+    // 💡 追加：CSV文字列をバックエンドで生成
+    public string GenerateTimesheetCsv(string startDate, string endDate, string viewMode, string? userName) {
+        var dates = new List<string>();
+        if (DateTime.TryParse(startDate, out var start) && DateTime.TryParse(endDate, out var end)) {
+            for (var d = start; d <= end; d = d.AddDays(1)) dates.Add(d.ToString("yyyy-MM-dd"));
+        }
+
+        var report = new Dictionary<string, Dictionary<string, int>>();
+        foreach (var cat in _categories) {
+            report[cat.Name] = new Dictionary<string, int>();
+            foreach (var date in dates) {
+                report[cat.Name][date] = 0;
+                if (_data.TryGetValue(date, out var tasks)) {
+                    var targetTasks = viewMode == "company" ? tasks : tasks.Where(t => t.UserName == userName);
+                    report[cat.Name][date] = targetTasks.Where(t => t.Category == cat.Name).Sum(t => t.ActualTime);
+                }
+            }
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("案件名," + string.Join(",", dates.Select(d => d.Substring(5))) + ",案件別合計");
+
+        int[] dailyGrandTotals = new int[dates.Count];
+        foreach (var cat in _categories) {
+            int rowTotal = 0;
+            var rowValues = new List<string>();
+            for (int i = 0; i < dates.Count; i++) {
+                int mins = report[cat.Name][dates[i]];
+                rowTotal += mins;
+                dailyGrandTotals[i] += mins;
+                rowValues.Add((mins / 60.0).ToString("0.##"));
+            }
+            sb.AppendLine($"{cat.Name},{string.Join(",", rowValues)},{(rowTotal / 60.0).ToString("0.##")}");
+        }
+
+        var footerValues = dailyGrandTotals.Select(mins => (mins / 60.0).ToString("0.##"));
+        double grandTotal = dailyGrandTotals.Sum() / 60.0;
+        sb.AppendLine($"総合計,{string.Join(",", footerValues)},{grandTotal.ToString("0.##")}");
+
+        return sb.ToString();
+    }
+
     public List<TodoItem> GetAllTodos() => _data.Values.SelectMany(x => x).ToList();
 
     public List<TodoItem> GetTodos(string date, string? query, bool hideCompleted) {
@@ -115,16 +188,11 @@ public class TodoService {
         return result.ToList();
     }
 
-    // ==========================================
-    // タスク操作（追加・変更・削除）
-    // ==========================================
     public void Add(string date, TodoTask task) {
         if (string.IsNullOrWhiteSpace(task.Title)) return;
         if (!_data.ContainsKey(date)) _data[date] = [];
 
         var user = string.IsNullOrWhiteSpace(task.UserName) ? "未設定" : task.UserName;
-        
-        // 💡 変更：重複判定の条件からEstimatedTimeを削除し、時間と部屋を追加
         if (_data[date].Any(t => t.Title == task.Title && t.StartTime == task.StartTime && t.EndTime == task.EndTime && t.UserName == user && !t.IsCompleted)) return;
 
         DateTime? deadline = null;
@@ -132,9 +200,8 @@ public class TodoService {
 
         var cat = string.IsNullOrWhiteSpace(task.Category) ? "未分類" : task.Category;
         AddCategory(cat);
-        
         var room = string.IsNullOrWhiteSpace(task.Room) ? "未設定" : task.Room;
-        AddRoom(room); // 新しい部屋が来たら自動登録
+        AddRoom(room); 
 
         int nextId = _data.Values.SelectMany(t => t).Select(t => t.Id).DefaultIfEmpty(0).Max() + 1;
         var newItem = new TodoItem(task.Title, false, deadline, cat, task.StartTime, task.EndTime, room, task.ActualTime, date, user) { Id = nextId };
@@ -142,10 +209,8 @@ public class TodoService {
         Save();
     }
 
-    // 💡 変更：タスク名、時間、部屋、メンバーを一括更新
     public void UpdateTask(string date, int id, TaskUpdateRequest req) {
         if (!_data.TryGetValue(date, out var tasks)) return;
-
         var targetTask = tasks.FirstOrDefault(t => t.Id == id);
         if (targetTask == null) return;
 
@@ -161,12 +226,7 @@ public class TodoService {
 
         var keptMembers = currentMembers.Intersect(newMembers).ToList();
         foreach (var t in tasks.Where(t => t.Title == originalTitle && t.Category == originalCategory && keptMembers.Contains(t.UserName))) {
-            t.Title = req.Title;
-            t.Category = req.Category;
-            t.StartTime = req.StartTime ?? ""; // 💡 追加
-            t.EndTime = req.EndTime ?? "";     // 💡 追加
-            t.Room = req.Room ?? "未設定";       // 💡 追加
-            t.ActualTime = req.ActualTime;
+            t.Title = req.Title; t.Category = req.Category; t.StartTime = req.StartTime ?? ""; t.EndTime = req.EndTime ?? ""; t.Room = req.Room ?? "未設定"; t.ActualTime = req.ActualTime;
         }
 
         var addedMembers = newMembers.Except(currentMembers).ToList();
@@ -175,16 +235,13 @@ public class TodoService {
         AddRoom(room);
 
         int nextId = GetAllTodos().Select(t => t.Id).DefaultIfEmpty(0).Max() + 1;
-
         foreach (var user in addedMembers) {
             var newItem = new TodoItem(req.Title, targetTask.IsCompleted, targetTask.Deadline, req.Category, req.StartTime, req.EndTime, room, req.ActualTime, date, user) { Id = nextId++ };
             tasks.Add(newItem);
         }
-
         Save();
     }
 
-    // 💡 変更：時間と部屋のみの部分更新
     public void UpdateTime(string date, int id, string? startTime, string? endTime, int actTime) {
         if (_data.TryGetValue(date, out var tasks)) {
             var targetTask = tasks.FirstOrDefault(t => t.Id == id);
@@ -219,7 +276,6 @@ public class TodoService {
         }
     }
 
-    // 💡 変更：持ち越し時にStartTime/EndTimeとRoomをコピー
     public void CarryOver(string date, int id) {
         if (_data.TryGetValue(date, out var tasks)) {
             var targetTask = tasks.FirstOrDefault(t => t.Id == id);
@@ -234,20 +290,20 @@ public class TodoService {
         }
     }
 
-    // ==========================================
-    // 統計計算
-    // ==========================================
+    // 💡 変更：フロントエンドで行っていた残タスク数や時間計算をバックエンドで実行
     public object GetStats(string date, string? userName = null) {
+        var defaultBreakdown = new Dictionary<string, int>();
         if (!_data.TryGetValue(date, out var tasks) || tasks.Count == 0)
-            return new { progress = 0, emoji = "😴", streakCount = CalculateStreak(date, userName), timeBreakdown = new Dictionary<string, int>() };
+            return new { progress = 0, emoji = "😴", streakCount = CalculateStreak(date, userName), timeBreakdown = defaultBreakdown, remainingCount = 0, totalTimeFormatted = "0分" };
 
         var targetTasks = string.IsNullOrEmpty(userName) ? tasks : tasks.Where(t => t.UserName == userName).ToList();
         if (targetTasks.Count == 0)
-            return new { progress = 0, emoji = "😴", streakCount = CalculateStreak(date, userName), timeBreakdown = new Dictionary<string, int>() };
+            return new { progress = 0, emoji = "😴", streakCount = CalculateStreak(date, userName), timeBreakdown = defaultBreakdown, remainingCount = 0, totalTimeFormatted = "0分" };
 
         int total = targetTasks.Count;
         int completedCount = targetTasks.Count(t => t.IsCompleted);
-        int progress = (int)Math.Round((double)completedCount / total * 100);
+        int progress = total > 0 ? (int)Math.Round((double)completedCount / total * 100) : 0;
+        int remaining = total - completedCount;
 
         string emoji = progress switch { 100 => "🤩", >= 80 => "😊", >= 50 => "😐", > 0 => "💦", _ => "😴" };
 
@@ -255,7 +311,21 @@ public class TodoService {
             .GroupBy(t => string.IsNullOrWhiteSpace(t.Category) ? "未分類" : t.Category)
             .ToDictionary(g => g.Key, g => g.Sum(t => t.ActualTime));
 
-        return new { progress = progress, emoji = emoji, streakCount = CalculateStreak(date, userName), timeBreakdown = timeBreakdown };
+        int totalMins = timeBreakdown.Values.Sum();
+        string formattedTime = totalMins / 60 > 0 ? $"{totalMins / 60}時間 {totalMins % 60}分" : $"{totalMins % 60}分";
+
+        return new { progress = progress, emoji = emoji, streakCount = CalculateStreak(date, userName), timeBreakdown = timeBreakdown, remainingCount = remaining, totalTimeFormatted = formattedTime };
+    }
+
+    public Dictionary<string, object> GetStatsByRange(string startDate, string endDate, string? userName = null) {
+        var result = new Dictionary<string, object>();
+        if (DateTime.TryParse(startDate, out var start) && DateTime.TryParse(endDate, out var end)) {
+            for (var d = start; d <= end; d = d.AddDays(1)) {
+                string dateStr = d.ToString("yyyy-MM-dd");
+                result[dateStr] = GetStats(dateStr, userName);
+            }
+        }
+        return result;
     }
 
     public object GetGlobalInsights() {
@@ -293,26 +363,23 @@ public class TodoService {
         return false;
     }
 
-    // ==========================================
-    // データ保存・読み込み
-    // ==========================================
     private void Save() => File.WriteAllText(FilePath, JsonSerializer.Serialize(_data, _options));
     private void SaveCategories() => File.WriteAllText(CatFilePath, JsonSerializer.Serialize(_categories, _options));
-    private void SaveGroups() => File.WriteAllText(GroupFilePath, JsonSerializer.Serialize(_userGroups, _options));
-    private void SaveRooms() => File.WriteAllText(RoomFilePath, JsonSerializer.Serialize(_rooms, _options)); // 💡 追加
+    private void SaveRooms() => File.WriteAllText(RoomFilePath, JsonSerializer.Serialize(_rooms, _options)); 
+    private void SaveTemplates() => File.WriteAllText(TemplateFilePath, JsonSerializer.Serialize(_templates, _options)); 
 
     private Dictionary<string, List<TodoItem>> Load() {
         try { return File.Exists(FilePath) ? JsonSerializer.Deserialize<Dictionary<string, List<TodoItem>>>(File.ReadAllText(FilePath)) ?? new() : new(); } 
         catch { return new(); }
     }
 
-    private Dictionary<string, List<UserGroup>> LoadGroups() {
-        try { return File.Exists(GroupFilePath) ? JsonSerializer.Deserialize<Dictionary<string, List<UserGroup>>>(File.ReadAllText(GroupFilePath)) ?? new() : new(); } 
+    private List<string> LoadRooms() {
+        try { return File.Exists(RoomFilePath) ? JsonSerializer.Deserialize<List<string>>(File.ReadAllText(RoomFilePath)) ?? new() : new(); } 
         catch { return new(); }
     }
 
-    private List<string> LoadRooms() {
-        try { return File.Exists(RoomFilePath) ? JsonSerializer.Deserialize<List<string>>(File.ReadAllText(RoomFilePath)) ?? new() : new(); } 
+    private Dictionary<string, List<TaskTemplate>> LoadTemplates() {
+        try { return File.Exists(TemplateFilePath) ? JsonSerializer.Deserialize<Dictionary<string, List<TaskTemplate>>>(File.ReadAllText(TemplateFilePath)) ?? new() : new(); } 
         catch { return new(); }
     }
 

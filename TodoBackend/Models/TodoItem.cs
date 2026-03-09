@@ -6,7 +6,6 @@ public record TodoTask(
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("deadlineStr")] string? DeadlineStr,
     [property: JsonPropertyName("category")] string? Category,
-    // 💡 変更：EstimatedTimeを削除し、開始・終了時間と部屋を追加
     [property: JsonPropertyName("startTime")] string? StartTime, 
     [property: JsonPropertyName("endTime")] string? EndTime,     
     [property: JsonPropertyName("room")] string? Room,           
@@ -16,7 +15,6 @@ public record TodoTask(
 );
 
 public record TimeUpdateRequest(
-    // 💡 変更：EstimatedTimeを削除
     [property: JsonPropertyName("startTime")] string? StartTime, 
     [property: JsonPropertyName("endTime")] string? EndTime,
     [property: JsonPropertyName("actualTime")] int ActualTime
@@ -25,7 +23,6 @@ public record TimeUpdateRequest(
 public record TaskUpdateRequest(
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("category")] string Category,
-    // 💡 変更：EstimatedTimeを削除し、時間と部屋を追加
     [property: JsonPropertyName("startTime")] string? StartTime,
     [property: JsonPropertyName("endTime")] string? EndTime,
     [property: JsonPropertyName("room")] string? Room,
@@ -38,9 +35,22 @@ public class CategoryInfo {
     [JsonPropertyName("color")] public string Color { get; set; } = "";
 }
 
-public class UserGroup {
-    [JsonPropertyName("groupName")] public string GroupName { get; set; } = string.Empty;
+public class TaskTemplate {
+    [JsonPropertyName("templateName")] public string TemplateName { get; set; } = string.Empty;
+    [JsonPropertyName("title")] public string Title { get; set; } = string.Empty;
+    [JsonPropertyName("category")] public string Category { get; set; } = "未分類";
+    [JsonPropertyName("room")] public string Room { get; set; } = "未設定";
+    [JsonPropertyName("startTime")] public string StartTime { get; set; } = "";
+    [JsonPropertyName("endTime")] public string EndTime { get; set; } = "";
     [JsonPropertyName("members")] public List<string> Members { get; set; } = new();
+}
+
+// 💡 追加：会社全体のマトリックス取得用リクエスト
+public class MatrixRequest {
+    [JsonPropertyName("startDate")] public string StartDate { get; set; } = string.Empty;
+    [JsonPropertyName("endDate")] public string EndDate { get; set; } = string.Empty;
+    [JsonPropertyName("teamMembers")] public List<string> TeamMembers { get; set; } = new();
+    [JsonPropertyName("priorityCategory")] public string? PriorityCategory { get; set; }
 }
 
 public class TodoItem 
@@ -50,19 +60,15 @@ public class TodoItem
     [JsonPropertyName("isCompleted")] public bool IsCompleted { get; set; }
     [JsonPropertyName("deadline")] public DateTime? Deadline { get; set; }
     [JsonPropertyName("category")] public string Category { get; set; } = "未分類";
-    
-    // 💡 新規追加：時間と部屋のプロパティ
     [JsonPropertyName("startTime")] public string StartTime { get; set; } = "";
     [JsonPropertyName("endTime")] public string EndTime { get; set; } = "";
     [JsonPropertyName("room")] public string Room { get; set; } = "未設定";
-
     [JsonPropertyName("actualTime")] public int ActualTime { get; set; } = 0;
     [JsonPropertyName("date")] public string Date { get; set; } = string.Empty;
     [JsonPropertyName("userName")] public string UserName { get; set; } = "未設定";
 
     public TodoItem() { }
 
-    // 💡 コンストラクタの引数を変更
     public TodoItem(string title, bool isCompleted, DateTime? deadline = null, string category = "未分類", string startTime = "", string endTime = "", string room = "未設定", int actTime = 0, string date = "", string userName = "未設定") 
     {
         Title = title;
