@@ -402,3 +402,4 @@ public class TodoService {
         return new List<CategoryInfo> { new CategoryInfo { Name = "開発", Color = "hsl(210, 70%, 50%)" }, new CategoryInfo { Name = "会議", Color = "hsl(330, 70%, 50%)" } };
     }
 }
+// テスト用の変更：GitHubへの反映テストです
