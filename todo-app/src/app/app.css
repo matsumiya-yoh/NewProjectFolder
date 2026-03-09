@@ -161,10 +161,10 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 .edit-member-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .edit-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
 
-.edit-cancel-btn, .edit-save-btn { display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 20px; padding: 8px 22px; font-size: 13px; font-weight: 800; cursor: pointer; transition: all 0.2s; outline: none; color: #ffffff !important; opacity: 1 !important; visibility: visible !important; }
-.edit-cancel-btn { background-color: #8e8e93 !important; box-shadow: 0 4px 10px rgba(142, 142, 147, 0.3); }
+.edit-cancel-btn, .edit-save-btn { display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 20px; font-size: 13px; font-weight: 800; cursor: pointer; transition: all 0.2s; outline: none; color: #ffffff !important; opacity: 1 !important; visibility: visible !important; }
+.edit-cancel-btn { background-color: #8e8e93 !important; box-shadow: 0 4px 10px rgba(142, 142, 147, 0.3); padding: 8px 22px; }
 .edit-cancel-btn:hover { background-color: #7c7c80 !important; transform: translateY(-2px); }
-.edit-save-btn { background-color: #007aff !important; box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3); }
+.edit-save-btn { background-color: #007aff !important; box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3); padding: 8px 22px; }
 .edit-save-btn:hover { background-color: #0056b3 !important; transform: translateY(-2px); }
 
 /* =========================================
@@ -267,7 +267,6 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 /* 統合テンプレートメニュー */
 .template-popup-menu { position: absolute; bottom: 100%; right: -10px; margin-bottom: 12px; background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); border: 1px solid rgba(0,0,0,0.15); border-radius: 16px; padding: 15px; box-shadow: 0 -15px 50px rgba(0,0,0,0.25); display: flex; flex-direction: column; z-index: 1100; animation: popUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: bottom right; width: 220px; }
 @keyframes popUp { from { opacity: 0; transform: translateY(10px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes popDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 
 .template-popup-header { font-size: 11px; font-weight: 800; color: var(--apple-blue); margin-bottom: 8px; text-align: left; }
 .empty-text { font-size: 11px; color: var(--apple-gray); padding: 5px 0; }
@@ -278,6 +277,10 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 
 .bulk-btn { font-size: 14px; border: none; background: transparent; cursor: pointer; transition: 0.2s; border-radius: 50%; padding: 2px; margin-left: 2px;}
 .bulk-btn:hover { background: rgba(0, 122, 255, 0.1); transform: scale(1.1); }
+
+/* 💡 新規追加：テンプレ編集ボタン（✏️）のスタイル */
+.edit-tmpl-btn { font-size: 13px; border: none; background: transparent; cursor: pointer; transition: 0.2s; border-radius: 50%; padding: 2px; margin-left: 2px; opacity: 0.7;}
+.edit-tmpl-btn:hover { background: rgba(255, 149, 0, 0.2); transform: scale(1.1); opacity: 1; }
 
 .del-grp { font-size: 16px; opacity: 0.5; transition: 0.2s; }
 .del-grp:hover { opacity: 1; color: #ff3b30; transform: scale(1.2); }
@@ -295,8 +298,8 @@ body { margin: 0; background: var(--bg-color); font-family: -apple-system, Blink
 .cat-popup-menu { cursor: grab; }
 .cat-popup-menu:active { cursor: grabbing; }
 
-.cat-chip, .add-cat-dropdown, .cw-chip, .add-cw-dropdown, .input-row-main, .input-row-hidden, .popup-section-header, .template-popup-header, .group-chip, .save-group-btn, .bulk-btn, .apple-input { cursor: default; }
-.cat-chip, .cw-chip, .group-chip, .save-group-btn, .bulk-btn, .del-cat-btn, .del-grp { cursor: pointer; }
+.cat-chip, .add-cat-dropdown, .cw-chip, .add-cw-dropdown, .input-row-main, .input-row-hidden, .popup-section-header, .template-popup-header, .group-chip, .save-group-btn, .bulk-btn, .edit-tmpl-btn, .apple-input { cursor: default; }
+.cat-chip, .cw-chip, .group-chip, .save-group-btn, .bulk-btn, .edit-tmpl-btn, .del-cat-btn, .del-grp { cursor: pointer; }
 .apple-input { cursor: text; }
 
 /* =========================================

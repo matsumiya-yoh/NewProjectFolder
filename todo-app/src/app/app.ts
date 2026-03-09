@@ -41,7 +41,7 @@ export interface TaskTemplate {
   startTime: string;
   endTime: string;
   members: string[];
-  isShared?: boolean;
+  isShared: boolean; 
 }
 
 @Component({
@@ -98,6 +98,10 @@ export class AppComponent implements OnInit {
   isPopupHovered = false;    
   isTemplateHovered = false; 
 
+  // 💡 追加：テンプレート編集用の状態管理変数
+  editingTemplateOldName: string | null = null;
+  editingTemplateIsShared: boolean = false;
+
   private isAdding = false; 
   private scrollTimeout: any = null; 
   private tsScrollTimer: any = null; 
@@ -123,12 +127,14 @@ export class AppComponent implements OnInit {
     this.activeTemplateKey = null;
     this.isUserDropdownOpen = false;
     this.isCalendarOpen = false;
+    this.editingTemplateOldName = null; // メニューを閉じたら編集状態もリセット
     this.cdr.detectChanges();
   }
 
   toggleTemplateMenu(key: string, event: Event): void {
     event.stopPropagation(); 
     this.activeTemplateKey = this.activeTemplateKey === key ? null : key;
+    this.editingTemplateOldName = null; // メニュー開閉時にリセット
     this.cdr.detectChanges();
   }
 
@@ -267,6 +273,9 @@ export class AppComponent implements OnInit {
   getEditingRoom(date: string, user: string): string { return this.editingRooms[`${date}-${user}`] || '未設定'; }
   setEditingRoom(date: string, user: string, room: string): void { this.editingRooms[`${date}-${user}`] = room; }
 
+  // ==========================================
+  // タスクテンプレート管理
+  // ==========================================
   fetchTemplates(): void {
     if (!this.currentUser) return;
     this.http.get<TaskTemplate[]>(`http://localhost:5099/api/templates/${encodeURIComponent(this.currentUser)}`).subscribe({
@@ -278,6 +287,32 @@ export class AppComponent implements OnInit {
     });
   }
 
+  // 💡 追加：✏️ボタンを押したときの処理（編集モードへ移行）
+  startEditTemplate(t: TaskTemplate, user: string, titleInput: HTMLInputElement, startInput: HTMLInputElement, endInput: HTMLInputElement, event: Event): void {
+    event.stopPropagation();
+    
+    // 値を入力フォームにセット
+    titleInput.value = t.title;
+    startInput.value = t.startTime;
+    endInput.value = t.endTime;
+    this.setEditingCategory(this.selectedDate, user, t.category);
+    this.setEditingRoom(this.selectedDate, user, t.room);
+    this.coWorkers[`${this.selectedDate}-${user}`] = [...t.members];
+
+    // 編集状態を保持
+    this.editingTemplateOldName = t.templateName;
+    this.editingTemplateIsShared = t.isShared;
+    this.cdr.detectChanges();
+  }
+
+  // 💡 追加：編集をキャンセルする処理
+  cancelEditTemplate(event?: Event): void {
+    if (event) event.stopPropagation();
+    this.editingTemplateOldName = null;
+    this.cdr.detectChanges();
+  }
+
+  // 💡 変更：編集モードの場合は PUT で上書きする
   saveTemplate(templateName: string, date: string, user: string, title: string, start: string, end: string, isShared: boolean = false): void {
     const finalName = templateName.trim() || title.trim();
     if (!finalName) {
@@ -296,15 +331,29 @@ export class AppComponent implements OnInit {
       members: this.coWorkers[`${date}-${user}`] || [],
       isShared: isShared 
     };
-    
-    this.http.post(`http://localhost:5099/api/templates/${encodeURIComponent(this.currentUser)}`, payload).subscribe({
-      next: () => {
-        this.fetchTemplates();
-        this.activeTemplateKey = null; 
-        this.cdr.detectChanges();
-      },
-      error: (err) => this.handleError('テンプレの保存に失敗しました', err)
-    });
+
+    if (this.editingTemplateOldName) {
+      // 編集更新 (PUT)
+      this.http.put(`http://localhost:5099/api/templates/${encodeURIComponent(this.currentUser)}/${encodeURIComponent(this.editingTemplateOldName)}`, payload).subscribe({
+        next: () => {
+          this.fetchTemplates();
+          this.editingTemplateOldName = null;
+          this.activeTemplateKey = null; 
+          this.cdr.detectChanges();
+        },
+        error: (err) => this.handleError('テンプレの更新に失敗しました', err)
+      });
+    } else {
+      // 新規作成 (POST)
+      this.http.post(`http://localhost:5099/api/templates/${encodeURIComponent(this.currentUser)}`, payload).subscribe({
+        next: () => {
+          this.fetchTemplates();
+          this.activeTemplateKey = null; 
+          this.cdr.detectChanges();
+        },
+        error: (err) => this.handleError('テンプレの保存に失敗しました', err)
+      });
+    }
   }
 
   loadTemplate(t: TaskTemplate, date: string, user: string, titleInput: HTMLInputElement, startInput: HTMLInputElement, endInput: HTMLInputElement, event: Event): void {
@@ -318,6 +367,7 @@ export class AppComponent implements OnInit {
     this.coWorkers[`${date}-${user}`] = [...t.members];
 
     this.activeTemplateKey = null; 
+    this.editingTemplateOldName = null; // 呼び出したら編集状態はリセット
     this.cdr.detectChanges();
   }
 
@@ -325,11 +375,15 @@ export class AppComponent implements OnInit {
     event.stopPropagation();
     if (!this.currentUser) return;
     this.http.delete(`http://localhost:5099/api/templates/${encodeURIComponent(this.currentUser)}/${encodeURIComponent(t.templateName)}?isShared=${t.isShared}`).subscribe({
-      next: () => this.fetchTemplates(),
+      next: () => {
+        if (this.editingTemplateOldName === t.templateName) this.editingTemplateOldName = null;
+        this.fetchTemplates();
+      },
       error: (err) => this.handleError('テンプレの削除に失敗しました', err)
     });
   }
 
+  // 💡 変更：一括登録（🚀）で、選択日から1ヶ月分（30日）の日付リストを生成して送信
   addBulkTodoFromTemplate(t: TaskTemplate, targetUser: string, event: Event): void {
     event.stopPropagation();
     if (this.isAdding) return;
@@ -337,10 +391,18 @@ export class AppComponent implements OnInit {
 
     const allTargets = Array.from(new Set([targetUser, ...(t.members || [])]));
 
+    // 選択日（selectedDate）を起点に、30日分の日付配列を作成
+    const bulkDates: string[] = [];
+    let current = new Date(this.selectedDate);
+    for (let i = 0; i < 30; i++) {
+      bulkDates.push(this.formatDate(current));
+      current.setDate(current.getDate() + 1);
+    }
+
     let idx = 0;
     const postNext = () => {
       if (idx >= allTargets.length) {
-        this.refreshView(this.selectedDate); 
+        this.refreshView(this.selectedDate); // 登録後は全データを再取得
         this.isAdding = false;
         this.activeTemplateKey = null;
         this.cdr.detectChanges();
@@ -348,7 +410,7 @@ export class AppComponent implements OnInit {
       }
       
       const payload = {
-        dates: this.dateRange, 
+        dates: bulkDates, 
         task: {
           title: t.title,
           category: t.category,
@@ -630,7 +692,7 @@ export class AppComponent implements OnInit {
   trackByTodo(i: number, item: TodoItem): string | number { return item.id || item.title; }
   trackByCat(i: number, cat: CategoryInfo): string { return cat.name; }
 
-formatHours(minutes: number): number | string { return minutes ? parseFloat((minutes / 60).toFixed(2)) : 0; }
+  formatHours(minutes: number): number | string { return minutes ? parseFloat((minutes / 60).toFixed(2)) : 0; }
   
   getRemainingCountByUser(date: string, userName: string): number { 
     const tasks = this.viewMode === 'personal' ? this.personalData[date] : this.matrixData[userName]?.[date];

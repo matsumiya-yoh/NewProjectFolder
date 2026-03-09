@@ -234,21 +234,30 @@
                       <div class="template-popup-header">📋 テンプレを呼び出し</div>
                       <div class="saved-groups-box">
                         <div *ngIf="savedTemplates.length === 0" class="empty-text">保存されたテンプレはありません</div>
-                        <div class="group-chip" *ngFor="let t of savedTemplates" (click)="loadTemplate(t, date, currentUser, newT, startInput, endInput, $event)">
-                          {{ t.isShared ? '🏢' : '🔒' }} {{ t.templateName }} 
-                          <button class="bulk-btn" title="全日付に一括登録" (click)="addBulkTodoFromTemplate(t, currentUser, $event)">🚀</button>
-                          <span class="del-grp" (click)="deleteTemplate(t, $event)">×</span>
-                        </div>
+                        <ng-container *ngFor="let t of savedTemplates">
+                          <div class="group-chip" *ngIf="editingTemplateOldName !== t.templateName" (click)="loadTemplate(t, date, currentUser, newT, startInput, endInput, $event)">
+                            {{ t.isShared ? '🏢' : '🔒' }} {{ t.templateName }} 
+                            <button class="bulk-btn" title="全日付に一括登録" (click)="addBulkTodoFromTemplate(t, currentUser, $event)">🚀</button>
+                            <button class="edit-tmpl-btn" title="編集" (click)="startEditTemplate(t, currentUser, newT, startInput, endInput, $event)">✏️</button>
+                            <span class="del-grp" (click)="deleteTemplate(t, $event)">×</span>
+                          </div>
+                        </ng-container>
                       </div>
 
                       <div class="input-divider" style="margin: 8px 0;"></div>
-                      <div class="template-popup-header">(+) 現在の内容を保存</div>
+                      <div class="template-popup-header">{{ editingTemplateOldName ? '✏️ テンプレの内容を更新' : '(+) 現在の内容を保存' }}</div>
                       
                       <div class="input-group" style="display: flex; gap: 5px; margin-top: 5px; flex-direction: column;">
-                        <input #grpName class="apple-input add-cw-input" placeholder="テンプレ名..." [value]="newT.value" autocomplete="off" (keydown.enter)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value, false)">
-                        <div style="display: flex; gap: 5px;">
+                        <input #grpName class="apple-input add-cw-input" placeholder="テンプレ名..." [value]="editingTemplateOldName || newT.value" autocomplete="off" (keydown.enter)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value, editingTemplateIsShared)">
+                        
+                        <div style="display: flex; gap: 5px;" *ngIf="!editingTemplateOldName">
                           <button class="save-group-btn" style="flex:1;" (click)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value, false)">🔒 個人用</button>
                           <button class="save-group-btn shared-btn" style="flex:1;" (click)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value, true)">🏢 共有用</button>
+                        </div>
+                        
+                        <div style="display: flex; gap: 5px;" *ngIf="editingTemplateOldName">
+                          <button class="edit-cancel-btn" style="flex:1; padding: 8px 12px;" (click)="cancelEditTemplate($event)">キャンセル</button>
+                          <button class="edit-save-btn" style="flex:1; padding: 8px 12px;" (click)="saveTemplate(grpName.value, date, currentUser, newT.value, startInput.value, endInput.value, editingTemplateIsShared)">上書き保存</button>
                         </div>
                       </div>
 
@@ -414,21 +423,30 @@
                       <div class="template-popup-header">📋 テンプレを呼び出し</div>
                       <div class="saved-groups-box">
                         <div *ngIf="savedTemplates.length === 0" class="empty-text">保存されたテンプレはありません</div>
-                        <div class="group-chip" *ngFor="let t of savedTemplates" (click)="loadTemplate(t, date, user, newT, startInput, endInput, $event)">
-                          {{ t.isShared ? '🏢' : '🔒' }} {{ t.templateName }} 
-                          <button class="bulk-btn" title="全日付に一括登録" (click)="addBulkTodoFromTemplate(t, user, $event)">🚀</button>
-                          <span class="del-grp" (click)="deleteTemplate(t, $event)">×</span>
-                        </div>
+                        <ng-container *ngFor="let t of savedTemplates">
+                          <div class="group-chip" *ngIf="editingTemplateOldName !== t.templateName" (click)="loadTemplate(t, date, user, newT, startInput, endInput, $event)">
+                            {{ t.isShared ? '🏢' : '🔒' }} {{ t.templateName }} 
+                            <button class="bulk-btn" title="全日付に一括登録" (click)="addBulkTodoFromTemplate(t, user, $event)">🚀</button>
+                            <button class="edit-tmpl-btn" title="編集" (click)="startEditTemplate(t, user, newT, startInput, endInput, $event)">✏️</button>
+                            <span class="del-grp" (click)="deleteTemplate(t, $event)">×</span>
+                          </div>
+                        </ng-container>
                       </div>
 
                       <div class="input-divider" style="margin: 8px 0;"></div>
-                      <div class="template-popup-header">(+) 現在の内容を保存</div>
+                      <div class="template-popup-header">{{ editingTemplateOldName ? '✏️ テンプレの内容を更新' : '(+) 現在の内容を保存' }}</div>
                       
                       <div class="input-group" style="display: flex; gap: 5px; margin-top: 5px; flex-direction: column;">
-                        <input #grpName class="apple-input add-cw-input" placeholder="テンプレ名..." [value]="newT.value" autocomplete="off" (keydown.enter)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value, false)">
-                        <div style="display: flex; gap: 5px;">
+                        <input #grpName class="apple-input add-cw-input" placeholder="テンプレ名..." [value]="editingTemplateOldName || newT.value" autocomplete="off" (keydown.enter)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value, editingTemplateIsShared)">
+                        
+                        <div style="display: flex; gap: 5px;" *ngIf="!editingTemplateOldName">
                           <button class="save-group-btn" style="flex:1;" (click)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value, false)">🔒 個人用</button>
                           <button class="save-group-btn shared-btn" style="flex:1;" (click)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value, true)">🏢 共有用</button>
+                        </div>
+
+                        <div style="display: flex; gap: 5px;" *ngIf="editingTemplateOldName">
+                          <button class="edit-cancel-btn" style="flex:1; padding: 8px 12px;" (click)="cancelEditTemplate($event)">キャンセル</button>
+                          <button class="edit-save-btn" style="flex:1; padding: 8px 12px;" (click)="saveTemplate(grpName.value, date, user, newT.value, startInput.value, endInput.value, editingTemplateIsShared)">上書き保存</button>
                         </div>
                       </div>
 
