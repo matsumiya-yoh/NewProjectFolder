@@ -35,21 +35,38 @@ public class TodoService {
         }
     }
 
+    // 💡 変更：個人用と共有用(__SHARED__)の両方を混ぜて返す
     public List<TaskTemplate> GetTemplates(string userName) {
-        if (string.IsNullOrWhiteSpace(userName)) return new();
-        return _templates.GetValueOrDefault(userName) ?? new();
+        var result = new List<TaskTemplate>();
+        if (!string.IsNullOrWhiteSpace(userName) && _templates.TryGetValue(userName, out var userTmpls)) {
+            result.AddRange(userTmpls);
+        }
+        if (_templates.TryGetValue("__SHARED__", out var sharedTmpls)) {
+            result.AddRange(sharedTmpls.Where(s => !result.Any(r => r.TemplateName == s.TemplateName))); 
+        }
+        return result;
     }
+
+    // 💡 変更：IsSharedがtrueなら __SHARED__ キーに保存する
     public void AddTemplate(string userName, TaskTemplate tmpl) {
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(tmpl.TemplateName)) return;
-        if (!_templates.ContainsKey(userName)) _templates[userName] = new();
-        var existing = _templates[userName].FirstOrDefault(t => t.TemplateName == tmpl.TemplateName);
-        if (existing != null) _templates[userName].Remove(existing);
-        _templates[userName].Add(tmpl);
+        
+        string targetKey = tmpl.IsShared ? "__SHARED__" : userName;
+
+        if (!_templates.ContainsKey(targetKey)) _templates[targetKey] = new();
+        var existing = _templates[targetKey].FirstOrDefault(t => t.TemplateName == tmpl.TemplateName);
+        if (existing != null) _templates[targetKey].Remove(existing);
+        
+        _templates[targetKey].Add(tmpl);
         SaveTemplates();
     }
-    public void DeleteTemplate(string userName, string templateName) {
-        if (_templates.ContainsKey(userName)) {
-            _templates[userName].RemoveAll(t => t.TemplateName == templateName); SaveTemplates();
+
+    // 💡 変更：共有・個人の区別をつけて削除
+    public void DeleteTemplate(string userName, string templateName, bool isShared) {
+        string targetKey = isShared ? "__SHARED__" : userName;
+        if (_templates.ContainsKey(targetKey)) {
+            _templates[targetKey].RemoveAll(t => t.TemplateName == templateName); 
+            SaveTemplates();
         }
     }
 
@@ -68,12 +85,11 @@ public class TodoService {
         }
     }
 
-    // 💡 追加：フロントエンドで行っていたソートをC#で実行
     private IEnumerable<TodoItem> SortTasks(IEnumerable<TodoItem> tasks, string? priorityCategory) {
         return tasks
-            .OrderBy(t => t.IsCompleted) // 未完了が上
-            .ThenByDescending(t => !string.IsNullOrEmpty(priorityCategory) && t.Category == priorityCategory) // 優先カテゴリが上
-            .ThenBy(t => string.IsNullOrEmpty(t.StartTime) ? "23:59" : t.StartTime); // 開始時間順
+            .OrderBy(t => t.IsCompleted) 
+            .ThenByDescending(t => !string.IsNullOrEmpty(priorityCategory) && t.Category == priorityCategory) 
+            .ThenBy(t => string.IsNullOrEmpty(t.StartTime) ? "23:59" : t.StartTime); 
     }
 
     public Dictionary<string, List<TodoItem>> GetTodosByRange(string startDate, string endDate, string? userName, string? priorityCategory) {
@@ -91,7 +107,6 @@ public class TodoService {
         return result;
     }
 
-    // 💡 追加：フロントエンドで行っていたマトリックスの構築をC#で実行
     public Dictionary<string, Dictionary<string, List<TodoItem>>> GetCompanyMatrix(string startDate, string endDate, List<string> teamMembers, string? priorityCategory) {
         var result = new Dictionary<string, Dictionary<string, List<TodoItem>>>();
         foreach (var member in teamMembers) { result[member] = new Dictionary<string, List<TodoItem>>(); }
@@ -136,7 +151,6 @@ public class TodoService {
         return new { dates, report, companyReport };
     }
 
-    // 💡 追加：CSV文字列をバックエンドで生成
     public string GenerateTimesheetCsv(string startDate, string endDate, string viewMode, string? userName) {
         var dates = new List<string>();
         if (DateTime.TryParse(startDate, out var start) && DateTime.TryParse(endDate, out var end)) {
@@ -186,6 +200,33 @@ public class TodoService {
         if (!string.IsNullOrWhiteSpace(query)) result = result.Where(t => t.Title.Contains(query, StringComparison.OrdinalIgnoreCase));
         if (hideCompleted) result = result.Where(t => !t.IsCompleted);
         return result.ToList();
+    }
+
+    // 💡 追加：複数日付への一括登録処理
+    public void AddBulk(List<string> dates, TodoTask task) {
+        if (string.IsNullOrWhiteSpace(task.Title) || dates == null || !dates.Any()) return;
+
+        var user = string.IsNullOrWhiteSpace(task.UserName) ? "未設定" : task.UserName;
+        var cat = string.IsNullOrWhiteSpace(task.Category) ? "未分類" : task.Category;
+        AddCategory(cat);
+        var room = string.IsNullOrWhiteSpace(task.Room) ? "未設定" : task.Room;
+        AddRoom(room); 
+
+        // 全タスクのIDの最大値を取得（一括登録時にインクリメントする）
+        int nextId = _data.Values.SelectMany(t => t).Select(t => t.Id).DefaultIfEmpty(0).Max() + 1;
+
+        foreach (var date in dates) {
+            if (!_data.ContainsKey(date)) _data[date] = new();
+            // その日の重複チェック
+            if (_data[date].Any(t => t.Title == task.Title && t.StartTime == task.StartTime && t.EndTime == task.EndTime && t.UserName == user && !t.IsCompleted)) continue;
+
+            DateTime? deadline = null;
+            if (!string.IsNullOrEmpty(task.DeadlineStr) && DateTime.TryParse($"{date} {task.DeadlineStr}", out var parsed)) deadline = parsed;
+
+            var newItem = new TodoItem(task.Title, false, deadline, cat, task.StartTime, task.EndTime, room, task.ActualTime, date, user) { Id = nextId++ };
+            _data[date].Add(newItem);
+        }
+        Save();
     }
 
     public void Add(string date, TodoTask task) {
@@ -290,7 +331,6 @@ public class TodoService {
         }
     }
 
-    // 💡 変更：フロントエンドで行っていた残タスク数や時間計算をバックエンドで実行
     public object GetStats(string date, string? userName = null) {
         var defaultBreakdown = new Dictionary<string, int>();
         if (!_data.TryGetValue(date, out var tasks) || tasks.Count == 0)
@@ -402,4 +442,3 @@ public class TodoService {
         return new List<CategoryInfo> { new CategoryInfo { Name = "開発", Color = "hsl(210, 70%, 50%)" }, new CategoryInfo { Name = "会議", Color = "hsl(330, 70%, 50%)" } };
     }
 }
-// テスト用の変更：GitHubへの反映テストです

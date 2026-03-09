@@ -15,22 +15,25 @@ app.UseCors();
 app.MapGet("/api/insights", (TodoService service) => Results.Ok(service.GetGlobalInsights()));
 app.MapGet("/api/todos", (TodoService service) => Results.Ok(service.GetAllTodos()));
 
-// 💡 変更：個人ビュー用（ソート・フィルタ・ユーザー絞り込みをバックエンドで実行）
 app.MapGet("/api/todos/range", (string start, string end, string? userName, string? priorityCategory, TodoService service) => 
     Results.Ok(service.GetTodosByRange(start, end, userName, priorityCategory)));
 
-// 💡 追加：会社全体ビュー用（マトリックス構造をバックエンドで生成）
 app.MapPost("/api/todos/matrix", (MatrixRequest req, TodoService service) => 
     Results.Ok(service.GetCompanyMatrix(req.StartDate, req.EndDate, req.TeamMembers, req.PriorityCategory)));
+
+// 💡 追加：指定した複数の日付へ一気にタスクを登録するAPI
+app.MapPost("/api/todos/bulk", (BulkTodoRequest req, TodoService service) => {
+    service.AddBulk(req.Dates, req.Task);
+    return Results.Ok();
+});
 
 app.MapGet("/api/stats/range", (string start, string end, string? userName, TodoService service) => 
     Results.Ok(service.GetStatsByRange(start, end, userName)));
 
-// 💡 追加：CSV（Excel）出力API（バックエンドでファイル生成して返す）
 app.MapGet("/api/export/timesheet", (string start, string end, string viewMode, string? userName, TodoService service) => {
     var csvString = service.GenerateTimesheetCsv(start, end, viewMode, userName);
     var bytes = System.Text.Encoding.UTF8.GetBytes(csvString);
-    var bomBytes = new byte[] { 0xEF, 0xBB, 0xBF }; // 文字化け防止のBOM
+    var bomBytes = new byte[] { 0xEF, 0xBB, 0xBF }; 
     var finalBytes = bomBytes.Concat(bytes).ToArray();
     return Results.File(finalBytes, "text/csv", $"Timesheet_{start}_to_{end}.csv");
 });
@@ -101,8 +104,9 @@ app.MapPost("/api/templates/{userName}", (string userName, TaskTemplate tmpl, To
     return Results.Ok();
 });
 
-app.MapDelete("/api/templates/{userName}/{templateName}", (string userName, string templateName, TodoService service) => {
-    service.DeleteTemplate(userName, templateName);
+// 💡 変更：共有テンプレかどうかを判別するため isShared を受け取る
+app.MapDelete("/api/templates/{userName}/{templateName}", (string userName, string templateName, bool? isShared, TodoService service) => {
+    service.DeleteTemplate(userName, templateName, isShared ?? false);
     return Results.Ok();
 });
 

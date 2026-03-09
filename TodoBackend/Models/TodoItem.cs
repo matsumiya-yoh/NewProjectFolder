@@ -30,6 +30,12 @@ public record TaskUpdateRequest(
     [property: JsonPropertyName("members")] List<string> Members 
 );
 
+// 💡 追加：複数日付への一括タスク登録用リクエスト
+public record BulkTodoRequest(
+    [property: JsonPropertyName("dates")] List<string> Dates,
+    [property: JsonPropertyName("task")] TodoTask Task
+);
+
 public class CategoryInfo {
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("color")] public string Color { get; set; } = "";
@@ -43,9 +49,11 @@ public class TaskTemplate {
     [JsonPropertyName("startTime")] public string StartTime { get; set; } = "";
     [JsonPropertyName("endTime")] public string EndTime { get; set; } = "";
     [JsonPropertyName("members")] public List<string> Members { get; set; } = new();
+    
+    // 💡 追加：会社全体で共有するかどうかのフラグ
+    [JsonPropertyName("isShared")] public bool IsShared { get; set; } = false; 
 }
 
-// 💡 追加：会社全体のマトリックス取得用リクエスト
 public class MatrixRequest {
     [JsonPropertyName("startDate")] public string StartDate { get; set; } = string.Empty;
     [JsonPropertyName("endDate")] public string EndDate { get; set; } = string.Empty;
