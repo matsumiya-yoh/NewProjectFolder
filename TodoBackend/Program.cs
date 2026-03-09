@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddSingleton<TodoService>();
+// ※ TemplateService の登録は削除しました（TodoServiceに統合されたため不要です）
 
 var app = builder.Build();
 app.UseCors();
@@ -104,9 +105,16 @@ app.MapPut("/api/templates/{userName}/{oldName}", (string userName, string oldNa
     return Results.Ok();
 });
 
+// ❌ テンプレートの削除API
 app.MapDelete("/api/templates/{userName}/{templateName}", (string userName, string templateName, bool? isShared, TodoService service) => {
     service.DeleteTemplate(userName, templateName, isShared ?? false);
     return Results.Ok();
+});
+
+// 🚀 【新規追加】テンプレートの1ヶ月一括反映API
+app.MapPost("/api/templates/{userName}/{templateName}/apply-monthly", (string userName, string templateName, bool? isShared, TodoService service) => {
+    service.ApplyTemplateForNextMonth(userName, templateName, isShared ?? false);
+    return Results.Ok(new { message = "1ヶ月分のタスクを生成しました！" });
 });
 
 // ==================================================

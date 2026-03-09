@@ -23,6 +23,7 @@ public class TodoService {
         _templates = LoadTemplates(); 
     }
 
+    // ==== 既存のメソッドはすべてそのまま維持 ====
     public List<string> GetRooms() => _rooms;
     public void AddRoom(string roomName) {
         if (!string.IsNullOrWhiteSpace(roomName) && !_rooms.Contains(roomName)) {
@@ -56,7 +57,6 @@ public class TodoService {
         SaveTemplates();
     }
 
-    // 💡 テンプレの編集（名前変更対応のため古い名前のものを削除して追加）
     public void UpdateTemplate(string userName, string oldName, TaskTemplate newTmpl) {
         foreach (var key in _templates.Keys.ToList()) {
             _templates[key].RemoveAll(t => t.TemplateName == oldName);
@@ -204,7 +204,6 @@ public class TodoService {
         return result.ToList();
     }
 
-    // 💡 複数日付への一括登録（フロントから送られた日付配列に対して登録）
     public void AddBulk(List<string> dates, TodoTask task) {
         if (string.IsNullOrWhiteSpace(task.Title) || dates == null || !dates.Any()) return;
 
@@ -218,7 +217,6 @@ public class TodoService {
 
         foreach (var date in dates) {
             if (!_data.ContainsKey(date)) _data[date] = new();
-            // 同じ日の重複を防ぐ
             if (_data[date].Any(t => t.Title == task.Title && t.StartTime == task.StartTime && t.EndTime == task.EndTime && t.UserName == user && !t.IsCompleted)) continue;
 
             DateTime? deadline = null;
@@ -369,5 +367,38 @@ public class TodoService {
             }
         } catch {}
         return new List<CategoryInfo> { new CategoryInfo { Name = "開発", Color = "hsl(210, 70%, 50%)" }, new CategoryInfo { Name = "会議", Color = "hsl(330, 70%, 50%)" } };
+    }
+
+    // ==================================================
+    // 🚀 【新規追加】テンプレートの1ヶ月一括反映機能
+    // ==================================================
+    public void ApplyTemplateForNextMonth(string userName, string templateName, bool isShared)
+    {
+        // 指定されたユーザー（または共有）のテンプレを探す
+        var template = GetTemplates(userName).FirstOrDefault(t => t.TemplateName == templateName && t.IsShared == isShared);
+        if (template == null) return;
+
+        // 向こう30日分の日付リストを作成
+        var today = DateTime.Today;
+        var dates = new List<string>();
+        for (int i = 0; i < 30; i++)
+        {
+            dates.Add(today.AddDays(i).ToString("yyyy-MM-dd"));
+        }
+
+        // テンプレからタスクデータを作成し、既存のAddBulkで一括登録
+        var task = new TodoTask(
+            template.Title,
+            null, // deadlineStr
+            template.Category,
+            template.StartTime,
+            template.EndTime,
+            template.Room,
+            0, // actualTime
+            null, // date
+            userName
+        );
+
+        AddBulk(dates, task);
     }
 }
