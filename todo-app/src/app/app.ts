@@ -98,7 +98,58 @@ export class AppComponent implements OnInit {
   isPopupHovered = false;    
   isTemplateHovered = false; 
 
-  // 💡 追加：テンプレート編集用の状態管理変数
+// ==========================================
+// ⏱️ 4桁時間入力用の制御ロジック
+// ==========================================
+
+// 1文字入力時の制御（ルール判定 ＋ 次へフォーカス ＋ 全選択）
+onDigitInput(current: HTMLInputElement, next: HTMLInputElement | null, pos: 'h1' | 'h2' | 'm1' | 'm2', h1Input?: HTMLInputElement) {
+  current.value = current.value.replace(/\D/g, ''); // 半角数字以外を削除
+
+  if (current.value.length >= 1) {
+    const num = parseInt(current.value, 10);
+    let isValid = true;
+
+    // 💡 枠の位置（pos）に応じたバリデーションルールの適用
+    if (pos === 'h1' && num > 2) isValid = false; // 24時間表記なので3以上は不可
+    if (pos === 'h2') {
+      const h1Val = h1Input ? parseInt(h1Input.value || '0', 10) : 0;
+      if (h1Val === 2 && num > 3) isValid = false; // 10の位が2なら、1の位は3まで（最大23時）
+    }
+    if (pos === 'm1' && num > 5) isValid = false; // 分の10の位は5まで（最大59分）
+
+    // ルール違反の場合は入力を無効化（空にする）してストップ
+    if (!isValid) {
+      current.value = '';
+      return;
+    }
+
+    // ルールOKなら次の枠へフォーカスし、そのまま上書きできるように全選択
+    if (next) {
+      next.focus();
+      setTimeout(() => next.select(), 0);
+    }
+  }
+}
+
+// Backspace時の制御（空の状態で押したら前の枠に戻って全選択）
+onBackspace(current: HTMLInputElement, prev: HTMLInputElement | null) {
+  if (current.value === '' && prev) {
+    prev.focus();
+    setTimeout(() => prev.select(), 0); 
+  }
+}
+
+// 4つの枠の値を結合して "19:00" 形式にする
+getFormattedTime(d1: HTMLInputElement, d2: HTMLInputElement, d3: HTMLInputElement, d4: HTMLInputElement): string {
+  if (!d1.value && !d2.value && !d3.value && !d4.value) return ''; // 全て空なら空文字
+  const time = `${d1.value || '0'}${d2.value || '0'}:${d3.value || '0'}${d4.value || '0'}`;
+  return time;
+}
+
+// ==========================================
+
+  // 💡 テンプレート編集用の状態管理変数
   editingTemplateOldName: string | null = null;
   editingTemplateIsShared: boolean = false;
 
@@ -287,7 +338,6 @@ export class AppComponent implements OnInit {
     });
   }
 
-  // 💡 追加：✏️ボタンを押したときの処理（編集モードへ移行）
   startEditTemplate(t: TaskTemplate, user: string, titleInput: HTMLInputElement, startInput: HTMLInputElement, endInput: HTMLInputElement, event: Event): void {
     event.stopPropagation();
     
@@ -305,14 +355,12 @@ export class AppComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  // 💡 追加：編集をキャンセルする処理
   cancelEditTemplate(event?: Event): void {
     if (event) event.stopPropagation();
     this.editingTemplateOldName = null;
     this.cdr.detectChanges();
   }
 
-  // 💡 変更：編集モードの場合は PUT で上書きする
   saveTemplate(templateName: string, date: string, user: string, title: string, start: string, end: string, isShared: boolean = false): void {
     const finalName = templateName.trim() || title.trim();
     if (!finalName) {
@@ -383,7 +431,6 @@ export class AppComponent implements OnInit {
     });
   }
 
-  // 💡 変更：一括登録（🚀）で、選択日から1ヶ月分（30日）の日付リストを生成して送信
   addBulkTodoFromTemplate(t: TaskTemplate, targetUser: string, event: Event): void {
     event.stopPropagation();
     if (this.isAdding) return;
@@ -391,7 +438,6 @@ export class AppComponent implements OnInit {
 
     const allTargets = Array.from(new Set([targetUser, ...(t.members || [])]));
 
-    // 選択日（selectedDate）を起点に、30日分の日付配列を作成
     const bulkDates: string[] = [];
     let current = new Date(this.selectedDate);
     for (let i = 0; i < 30; i++) {

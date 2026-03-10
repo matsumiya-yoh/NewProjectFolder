@@ -221,8 +221,11 @@
 
               <div class="bottom-input-container">
                 <div class="input-row-main">
+                  <input type="hidden" #startInput [value]="h1 ? getFormattedTime(h1,h2,m1,m2) : ''">
+                  <input type="hidden" #endInput [value]="eh1 ? getFormattedTime(eh1,eh2,em1,em2) : ''">
+                  
                   <input #newT class="task-input-field" placeholder="タスクを入力..." autocomplete="off"
-                         (keydown.enter)="startInput.focus()">
+                         (keydown.enter)="h1.focus()">
                   
                   <div class="template-tool-wrapper" [class.menu-open]="activeTemplateKey === 'menu-' + date + '-' + currentUser">
                     <button class="template-icon-btn" title="タスクテンプレート" (click)="toggleTemplateMenu('menu-' + date + '-' + currentUser, $event)">📋</button>
@@ -265,18 +268,35 @@
                   </div>
                 </div>
 
-                <div class="input-row-hidden">
-                  <div class="input-divider"></div>
-                  <div class="input-row-time">
-                    <div class="time-picker-wrap">
-                      <span class="time-icon">⏱</span>
-                      <input #startInput type="time" class="time-pick-mini" (change)="endInput.focus()" (keydown.enter)="endInput.focus()">
-                    </div>
-                    <span class="time-separator">～</span>
-                    <div class="time-picker-wrap">
-                      <span class="time-icon">⏱</span>
-                      <input #endInput type="time" class="time-pick-mini" (keydown.enter)="addTodo(newT.value, date, startInput.value, endInput.value, currentUser, newT, startInput, endInput)">
-                    </div>
+                <div class="input-row-time digit-entry-mode">
+                  <span class="time-icon">⏱</span>
+  
+                  <div class="digit-group">
+                    <input #h1 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                           (input)="onDigitInput(h1, h2, 'h1')" (keydown.backspace)="onBackspace(h1, null)" (focus)="h1.select()">
+                    <input #h2 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                           (input)="onDigitInput(h2, m1, 'h2', h1)" (keydown.backspace)="onBackspace(h2, h1)" (focus)="h2.select()">
+                    <span class="digit-separator">:</span>
+                    <input #m1 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                           (input)="onDigitInput(m1, m2, 'm1')" (keydown.backspace)="onBackspace(m1, h2)" (focus)="m1.select()">
+                    <input #m2 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                           (input)="onDigitInput(m2, eh1, 'm2')" (keydown.backspace)="onBackspace(m2, m1)" (focus)="m2.select()">
+                  </div>
+
+                  <span class="time-separator">～</span>
+
+                  <div class="digit-group">
+                    <input #eh1 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                           (input)="onDigitInput(eh1, eh2, 'h1')" (keydown.backspace)="onBackspace(eh1, m2)" (focus)="eh1.select()">
+                    <input #eh2 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                           (input)="onDigitInput(eh2, em1, 'h2', eh1)" (keydown.backspace)="onBackspace(eh2, eh1)" (focus)="eh2.select()">
+                    <span class="digit-separator">:</span>
+                    <input #em1 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                           (input)="onDigitInput(em1, em2, 'm1')" (keydown.backspace)="onBackspace(em1, eh2)" (focus)="em1.select()">
+                    <input #em2 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                           (input)="onDigitInput(em2, null, 'm2')" 
+                           (keydown.enter)="addTodo(newT.value, date, getFormattedTime(h1,h2,m1,m2), getFormattedTime(eh1,eh2,em1,em2), currentUser, newT, startInput, endInput); h1.value=''; h2.value=''; m1.value=''; m2.value=''; eh1.value=''; eh2.value=''; em1.value=''; em2.value=''"
+                           (keydown.backspace)="onBackspace(em2, em1)" (focus)="em2.select()">
                   </div>
                 </div>
               </div>
@@ -410,8 +430,11 @@
 
               <div class="bottom-input-container">
                 <div class="input-row-main">
+                  <input type="hidden" #startInput [value]="h1 ? getFormattedTime(h1,h2,m1,m2) : ''">
+                  <input type="hidden" #endInput [value]="eh1 ? getFormattedTime(eh1,eh2,em1,em2) : ''">
+
                   <input #newT class="task-input-field" placeholder="タスクを入力..." autocomplete="off"
-                         (keydown.enter)="startInput.focus()">
+                         (keydown.enter)="h1.focus()">
                   
                   <div class="template-tool-wrapper" [class.menu-open]="activeTemplateKey === 'menu-' + date + '-' + user">
                     <button class="template-icon-btn" title="タスクテンプレート" (click)="toggleTemplateMenu('menu-' + date + '-' + user, $event)">📋</button>
@@ -456,15 +479,35 @@
 
                 <div class="input-row-hidden">
                   <div class="input-divider"></div>
-                  <div class="input-row-time">
-                    <div class="time-picker-wrap">
-                      <span class="time-icon">⏱</span>
-                      <input #startInput type="time" class="time-pick-mini" (change)="endInput.focus()" (keydown.enter)="endInput.focus()">
+                  <div class="input-row-time digit-entry-mode">
+                    <span class="time-icon">⏱</span>
+                    
+                    <div class="digit-group">
+                      <input #h1 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                             (input)="onDigitInput(h1, h2, 'h1')" (keydown.backspace)="onBackspace(h1, null)" (focus)="h1.select()">
+                      <input #h2 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                             (input)="onDigitInput(h2, m1, 'h2', h1)" (keydown.backspace)="onBackspace(h2, h1)" (focus)="h2.select()">
+                      <span class="digit-separator">:</span>
+                      <input #m1 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                             (input)="onDigitInput(m1, m2, 'm1')" (keydown.backspace)="onBackspace(m1, h2)" (focus)="m1.select()">
+                      <input #m2 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                             (input)="onDigitInput(m2, eh1, 'm2')" (keydown.backspace)="onBackspace(m2, m1)" (focus)="m2.select()">
                     </div>
+
                     <span class="time-separator">～</span>
-                    <div class="time-picker-wrap">
-                      <span class="time-icon">⏱</span>
-                      <input #endInput type="time" class="time-pick-mini" (keydown.enter)="addTodo(newT.value, date, startInput.value, endInput.value, user, newT, startInput, endInput)">
+
+                    <div class="digit-group">
+                      <input #eh1 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                             (input)="onDigitInput(eh1, eh2, 'h1')" (keydown.backspace)="onBackspace(eh1, m2)" (focus)="eh1.select()">
+                      <input #eh2 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                             (input)="onDigitInput(eh2, em1, 'h2', eh1)" (keydown.backspace)="onBackspace(eh2, eh1)" (focus)="eh2.select()">
+                      <span class="digit-separator">:</span>
+                      <input #em1 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                             (input)="onDigitInput(em1, em2, 'm1')" (keydown.backspace)="onBackspace(em1, eh2)" (focus)="em1.select()">
+                      <input #em2 type="text" inputmode="numeric" maxlength="1" class="digit-input" placeholder="0"
+                             (input)="onDigitInput(em2, null, 'm2')" 
+                             (keydown.enter)="addTodo(newT.value, date, getFormattedTime(h1,h2,m1,m2), getFormattedTime(eh1,eh2,em1,em2), user, newT, startInput, endInput); h1.value=''; h2.value=''; m1.value=''; m2.value=''; eh1.value=''; eh2.value=''; em1.value=''; em2.value=''"
+                             (keydown.backspace)="onBackspace(em2, em1)" (focus)="em2.select()">
                     </div>
                   </div>
                 </div>
